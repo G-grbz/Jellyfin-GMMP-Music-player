@@ -41,6 +41,10 @@ Jellyfin için hazırlanmış Müzik oynatıcı.
 <details>
 <summary> 🚀 Türkçe Kurulum </summary>
 
+### ⚠️ Önemli Notlar
+
+Not: Bu oynatıcı Jellyfin Media Slider (JMS) ile tamamen entegredir. Zaten JMS kullanıyorsanız, çakışmaları veya yinelenen işlevleri önlemek için bunu yüklemeyin.
+
 ### Windows için
 
 İndirdiğiniz sıkıştırılmış klasörü herhangi boş bir klasöre çıkarıp ``` install.bat ``` betiğini yönetici olarak çalıştırın.
@@ -58,8 +62,6 @@ Jellyfin için hazırlanmış Müzik oynatıcı.
 
 ### Kurulum scriptini çalıştırın:
 
-### ( Not: Jellyfin Media Slider ile entagtasyonlu çalışmaktadır. JMS kullananlar için bu kuruluma gerek yoktur.)
-
 ``` sudo chmod +x install.sh && sudo ./install.sh ```
 
 ### Tarayıcı çerezlerini temizleyin.
@@ -71,7 +73,12 @@ Jellyfin için hazırlanmış Müzik oynatıcı.
 
 <details>
 <summary> 🚀 English Installation Guide </summary>
-  
+
+ ### ⚠️ Important Notes
+
+Note: This player is fully integrated with Jellyfin Media Slider (JMS).
+If you are already using JMS, do not install this separately to avoid conflicts or duplicate functionality.
+
 ### For Windows
   
 Extract the downloaded archive to any folder and run the ``` install.bat ``` script as Administrator.
