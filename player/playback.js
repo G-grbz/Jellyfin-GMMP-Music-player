@@ -13,8 +13,8 @@ const config = getConfig();
 
 const SEEK_RETRY_DELAY = 2000;
 const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
-const TRACK_CHANGE_DELAY = 1000; // 1 saniye gecikme (isteğe bağlı olarak artırılabilir)
-const ERROR_RETRY_DELAY = 2000; // Hata durumunda 2 saniye bekle
+const TRACK_CHANGE_DELAY = 1000;
+const ERROR_RETRY_DELAY = 2000;
 
 let currentCanPlayHandler = null;
 let currentPlayErrorHandler = null;
