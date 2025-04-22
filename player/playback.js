@@ -12,7 +12,9 @@ import { updateProgress, updateDuration, setupAudioListeners } from "./progress.
 const config = getConfig();
 
 const SEEK_RETRY_DELAY = 2000;
-const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
+const TRACK_CHANGE_DELAY = 1000; // 1 saniye gecikme (isteğe bağlı olarak artırılabilir)
+const ERROR_RETRY_DELAY = 2000; // Hata durumunda 2 saniye bekle
 
 let currentCanPlayHandler = null;
 let currentPlayErrorHandler = null;
@@ -112,30 +114,35 @@ export function togglePlayPause() {
 
 export function playPrevious() {
   const { currentIndex, playlist, audio } = musicPlayerState;
+
   if (audio.currentTime > 3) {
     audio.currentTime = 0;
-    showNotification(`${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`);
     return;
   }
 
-  const newIndex = currentIndex - 1 < 0 ? playlist.length - 1 : currentIndex - 1;
-  playTrack(newIndex);
+  cleanupAudioListeners();
 
+  setTimeout(() => {
+    const newIndex = currentIndex - 1 < 0 ? playlist.length - 1 : currentIndex - 1;
+    playTrack(newIndex);
+  }, TRACK_CHANGE_DELAY);
 }
 
 export function playNext() {
   const { currentIndex, playlist, userSettings } = musicPlayerState;
 
-  if (userSettings.shuffleMode) {
-    const randomIndex = Math.floor(Math.random() * playlist.length);
-    playTrack(randomIndex);
-    showNotification(`Karışık mod: ${musicPlayerState.playlist[randomIndex].Name || musicPlayerState.playlist[randomIndex].title}`);
-    return;
-  }
+  cleanupAudioListeners();
 
-  const newIndex = (currentIndex + 1) % playlist.length;
-  playTrack(newIndex);
+  setTimeout(() => {
+    if (userSettings.shuffleMode) {
+      const randomIndex = Math.floor(Math.random() * playlist.length);
+      playTrack(randomIndex);
+      return;
+    }
 
+    const newIndex = (currentIndex + 1) % playlist.length;
+    playTrack(newIndex);
+  }, TRACK_CHANGE_DELAY);
 }
 
 export async function updateModernTrackInfo(track) {
@@ -324,8 +331,6 @@ export function playTrack(index) {
 
   musicPlayerState.currentTrackName = track.Name || track.title || "Bilinmeyen Şarkı";
   musicPlayerState.currentAlbumName = track.Album || "Bilinmeyen Albüm";
-
-  showNotification(`${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`);
 
   updateModernTrackInfo(track);
   updatePlaylistModal();
