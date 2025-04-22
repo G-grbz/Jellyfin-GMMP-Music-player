@@ -37,14 +37,26 @@ export function createModernPlayerUI() {
   playlistBtn.title = config.languageLabels.playlist;
   playlistBtn.onclick = togglePlaylistModal;
 
+  const settingsLink = document.createElement("div");
+  settingsLink.className = "settingsLink";
+  settingsLink.innerHTML = '<i class="fas fa-cog"></i>';
+  settingsLink.title = config.languageLabels.settings || "Settings";
+  settingsLink.href = "#";
+  settingsLink.onclick = (e) => {
+    e.preventDefault();
+    const settings = initSettings();
+    settings.open();
+  };
+
   const closeBtn = document.createElement("div");
-  closeBtn.className = "kapat-btn";
+  closeBtn.className = "kapat-buton";
   closeBtn.innerHTML = '<i class="fas fa-times"></i>';
   closeBtn.title = config.languageLabels.close || "Close";
   closeBtn.onclick = togglePlayerVisibility;
 
   topControlsContainer.appendChild(playlistBtn);
   topControlsContainer.appendChild(jellyfinPlaylistBtn);
+  topControlsContainer.appendChild(settingsLink);
   topControlsContainer.appendChild(closeBtn);
 
 
@@ -275,4 +287,3 @@ export function createModernPlayerUI() {
     lyricsBtn
   };
 }
-
