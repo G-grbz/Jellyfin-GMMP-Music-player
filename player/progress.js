@@ -235,14 +235,13 @@ export function updateProgress() {
   if (now - lastUpdateTime < 200 && !isDragging) return;
   lastUpdateTime = now;
 
-  const { audio, progress, currentTimeEl, progressHandle } = musicPlayerState;
+  const { audio, progress, currentTimeEl } = musicPlayerState;
   const dur = getEffectiveDuration();
 
   if (!progress || !currentTimeEl) return;
 
   if (!isFinite(dur) || dur <= 0) {
     progress.style.width = `0%`;
-    if (progressHandle) progressHandle.style.left = `0%`;
     currentTimeEl.textContent = formatTime(audio.currentTime || 0);
 
     if (!musicPlayerState.durationRetry) {
@@ -257,7 +256,6 @@ export function updateProgress() {
 
   const percent = Math.min(100, (audio.currentTime / dur) * 100);
   progress.style.width = `${percent}%`;
-  if (progressHandle) progressHandle.style.left = `${percent}%`;
   currentTimeEl.textContent = formatTime(audio.currentTime);
 }
 
@@ -270,9 +268,6 @@ export function updateDuration() {
 }
 
 export function cleanupMediaSession() {
-  if (positionUpdateInterval) {
-    clearInterval(positionUpdateInterval);
-  }
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', null);
     navigator.mediaSession.setActionHandler('pause', null);
