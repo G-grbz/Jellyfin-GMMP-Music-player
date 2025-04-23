@@ -22,10 +22,23 @@ export async function readID3Tags(trackId) {
     const tags = await new Promise((resolve) => {
       window.jsmediatags.read(new Blob([arrayBuffer]), {
         onSuccess: function(tag) {
+          let genre = tag.tags?.genre || null;
+
+          if (genre && typeof genre === 'string') {
+            const genreParts = genre
+              .split(/[,;/]/)
+              .map(g => g.trim().toLowerCase())
+              .filter((g, i, arr) => g && arr.indexOf(g) === i);
+
+            genre = genreParts
+              .map(g => g.charAt(0).toUpperCase() + g.slice(1))
+              .join(", ");
+          }
+
           const result = {
             lyrics: tag.tags?.USLT?.lyrics || tag.tags?.lyrics?.lyrics || null,
             picture: tag.tags?.picture || null,
-            genre: tag.tags?.genre || null,
+            genre: genre || null,
             year: tag.tags?.year || null
           };
           resolve(result);
@@ -47,6 +60,7 @@ export async function readID3Tags(trackId) {
     return null;
   }
 }
+
 
 export async function loadJSMediaTags() {
   return new Promise((resolve, reject) => {

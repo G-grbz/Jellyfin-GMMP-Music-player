@@ -40,7 +40,7 @@ export function createModernPlayerUI() {
   const settingsLink = document.createElement("div");
   settingsLink.className = "settingsLink";
   settingsLink.innerHTML = '<i class="fas fa-cog"></i>';
-  settingsLink.title = config.languageLabels.settings || "Settings";
+  settingsLink.title = config.languageLabels.ayarlar || "Ayar";
   settingsLink.href = "#";
   settingsLink.onclick = (e) => {
     e.preventDefault();
@@ -193,7 +193,7 @@ export function createModernPlayerUI() {
       scrollableControls.appendChild(btn);
     });
 
-    volumeSlider.style.display = "none";
+    volumeSlider.style.display = "block";
     controls.appendChild(scrollableControls);
   } else {
     controls.appendChild(repeatBtn);

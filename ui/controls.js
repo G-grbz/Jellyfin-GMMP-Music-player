@@ -38,7 +38,11 @@ function updateVolumeUI(volume, isMuted = false) {
   updateVolumeIcon(volume);
   musicPlayerState.volumeSlider.value = volume;
 
-  showNotification(`${config.languageLabels.volume || 'Ses seviyesi'}: ${Math.round(volume * 100)}%`);
+  showNotification(
+  `${config.languageLabels.volume || 'Ses seviyesi'}: ${Math.round(volume * 100)}%`,
+  1500,
+  'volume'
+);
 }
 
 export function toggleMute() {
@@ -55,7 +59,7 @@ export function toggleMute() {
   if (audio.muted) {
     volumeSlider.dataset.lastVolume = volumeSlider.value;
     volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
-    showNotification(config.languageLabels.volOff || 'Ses kapatıldı');
+    showNotification(config.languageLabels.volOff || 'Ses kapatıldı', 1500, 'volume');
   } else {
     const newVolume = parseFloat(volumeSlider.dataset.lastVolume) || 0.7;
     audio.volume = newVolume;
@@ -133,7 +137,11 @@ export function toggleRepeatMode() {
     '<i class="fas fa-redo"></i>' :
     `<i class="fas fa-redo" style="color:#e91e63"></i>`;
 
-  showNotification(notificationMessages[musicPlayerState.userSettings.repeatMode]);
+  showNotification(
+  notificationMessages[musicPlayerState.userSettings.repeatMode],
+  1500,
+  'repeat'
+);
   saveUserSettings();
 }
 
@@ -190,11 +198,14 @@ export function toggleShuffle() {
     }
   }
 
-  showNotification(notificationMessages[newShuffleState]);
+  showNotification(
+  notificationMessages[newShuffleState],
+  1500,
+  'shuffle'
+);
   updatePlaylistModal();
   saveUserSettings();
 }
-
 
 function createKeyboardHelpModal() {
   if (document.querySelector('#keyboardHelpModal')) return;

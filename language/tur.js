@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  ayarlar: "Ayarlar",
   simdioynat: "Şimdi Oynatılan",
   playlistCreateFailed: "Oynatma listesi oluşturulamadı",
   playlistCreatedSuccessfully: "Oynatma listesi başarıyla oluşturuldu",

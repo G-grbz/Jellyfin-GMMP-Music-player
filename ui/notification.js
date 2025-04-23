@@ -4,8 +4,13 @@ const config = getConfig();
 let notificationQueue = [];
 let isShowing = false;
 
-export function showNotification(message, duration = 2000) {
-  notificationQueue.push({ message, duration });
+export function showNotification(message, duration = 2000, group = null) {
+  if (group) {
+    notificationQueue = notificationQueue.filter(n => n.group !== group);
+  }
+
+  notificationQueue.push({ message, duration, group });
+
   if (!isShowing) {
     processQueue();
   }
@@ -20,30 +25,30 @@ function processQueue() {
   isShowing = true;
   const { message, duration } = notificationQueue.shift();
 
-  let notificationsContainer = document.querySelector('.player-notifications-container');
-  if (!notificationsContainer) {
-    notificationsContainer = document.createElement('div');
-    notificationsContainer.className = 'player-notifications-container';
-    document.body.appendChild(notificationsContainer);
+  let container = document.querySelector('.player-notifications-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'player-notifications-container';
+    document.body.appendChild(container);
   }
 
   const notification = document.createElement('div');
   notification.className = 'player-notification';
   notification.textContent = message;
-  notificationsContainer.appendChild(notification);
+
+  container.appendChild(notification);
+
+  requestAnimationFrame(() => {
+    notification.style.opacity = '1';
+  });
 
   setTimeout(() => {
-    notification.classList.add('show');
-  }, 10);
-
-  setTimeout(() => {
-    notification.classList.remove('show');
+    notification.style.opacity = '0';
     setTimeout(() => {
       notification.remove();
-      if (notificationsContainer.children.length === 0) {
-        notificationsContainer.remove();
+      if (container.children.length === 0) {
+        container.remove();
       }
-
       processQueue();
     }, 300);
   }, duration);

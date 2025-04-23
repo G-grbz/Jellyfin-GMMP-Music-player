@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Язык по умолчанию",
+  ayarlar: "Настройки",
   simdioynat: "Сейчас играет",
   playlistCreateFailed: "Не удалось создать плейлист",
   playlistCreatedSuccessfully: "Плейлист успешно создан",
