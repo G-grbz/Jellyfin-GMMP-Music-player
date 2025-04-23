@@ -117,15 +117,15 @@ export function toggleRepeatMode() {
   }
 
   const titles = {
-    'none': config.languageLabels.repeatModOff || 'Tekrar kapalı',
-    'one': config.languageLabels.repeatModOne || 'Tek şarkı tekrarı',
-    'all': config.languageLabels.repeatModAll || 'Tüm liste tekrarı'
+    'none': config.languageLabels?.repeatModOff || 'Tekrar kapalı',
+    'one': config.languageLabels?.repeatModOne || 'Tek şarkı tekrarı',
+    'all': config.languageLabels?.repeatModAll || 'Tüm liste tekrarı'
   };
 
   const notificationMessages = {
-    'none': `${config.languageLabels.repeatMod || 'Tekrar modu'}: ${config.languageLabels.repeatModOff || 'kapalı'}`,
-    'one': `${config.languageLabels.repeatMod || 'Tekrar modu'}: ${config.languageLabels.repeatModOne || 'tek şarkı'}`,
-    'all': `${config.languageLabels.repeatMod || 'Tekrar modu'}: ${config.languageLabels.repeatModAll || 'tüm liste'}`,
+    'none': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModOff || 'kapalı'}`,
+    'one': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModOne || 'tek şarkı'}`,
+    'all': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModAll || 'tüm liste'}`,
   };
 
   repeatBtn.title = titles[musicPlayerState.userSettings.repeatMode];
@@ -134,10 +134,17 @@ export function toggleRepeatMode() {
     `<i class="fas fa-redo" style="color:#e91e63"></i>`;
 
   showNotification(notificationMessages[musicPlayerState.userSettings.repeatMode]);
+  saveUserSettings();
 }
 
 export function toggleShuffle() {
-  musicPlayerState.userSettings.shuffle = !musicPlayerState.userSettings.shuffle;
+  if (!musicPlayerState || !musicPlayerState.userSettings) {
+    console.error('Müzik çalar durumu veya kullanıcı ayarları yüklenmedi');
+    return;
+  }
+
+  const newShuffleState = !musicPlayerState.userSettings.shuffle;
+  musicPlayerState.userSettings.shuffle = newShuffleState;
 
   const shuffleBtn = document.querySelector('.player-btn .fa-random')?.parentElement;
   if (!shuffleBtn) {
@@ -145,32 +152,50 @@ export function toggleShuffle() {
     return;
   }
 
-  shuffleBtn.title = `${config.languageLabels.shuffle || 'Karıştırma'}: ${
-    musicPlayerState.userSettings.shuffle ?
-    config.languageLabels.shuffleOn || 'Açık' :
-    config.languageLabels.shuffleOff || 'Kapalı'
-  }`;
+  const titles = {
+    true: config.languageLabels?.shuffleOn || 'Karıştırma açık',
+    false: config.languageLabels?.shuffleOff || 'Karıştırma kapalı'
+  };
 
-  if (musicPlayerState.userSettings.shuffle) {
-    shuffleBtn.innerHTML = '<i class="fas fa-random" style="color:#e91e63"></i>';
+  const notificationMessages = {
+    true: `${config.languageLabels?.shuffle || 'Karıştırma'}: ${config.languageLabels?.shuffleOn || 'açık'}`,
+    false: `${config.languageLabels?.shuffle || 'Karıştırma'}: ${config.languageLabels?.shuffleOff || 'kapalı'}`
+  };
+
+  shuffleBtn.title = titles[newShuffleState];
+  shuffleBtn.innerHTML = newShuffleState
+    ? '<i class="fas fa-random" style="color:#e91e63"></i>'
+    : '<i class="fas fa-random"></i>';
+
+  const currentTrackId = musicPlayerState.currentIndex !== -1
+    ? musicPlayerState.playlist[musicPlayerState.currentIndex]?.Id
+    : null;
+
+  if (newShuffleState) {
     musicPlayerState.playlist = shuffleArray([...musicPlayerState.originalPlaylist]);
-    showNotification(`${config.languageLabels.shuffle || 'Karıştırma'}: ${config.languageLabels.shuffleOn || 'açık'}`);
   } else {
-    shuffleBtn.innerHTML = '<i class="fas fa-random"></i>';
     musicPlayerState.playlist = [...musicPlayerState.originalPlaylist];
-    showNotification(`${config.languageLabels.shuffle || 'Karıştırma'}: ${config.languageLabels.shuffleOff || 'kapalı'}`);
+    if (currentTrackId) {
+      const originalIndex = musicPlayerState.originalPlaylist.findIndex(track => track.Id === currentTrackId);
+      if (originalIndex !== -1) {
+        musicPlayerState.currentIndex = originalIndex;
+      }
+    }
   }
 
-  if (musicPlayerState.playlist.length > 0 && musicPlayerState.currentIndex < musicPlayerState.originalPlaylist.length) {
-    const currentTrackId = musicPlayerState.originalPlaylist[musicPlayerState.currentIndex]?.Id;
+  if (newShuffleState && currentTrackId) {
     const newIndex = musicPlayerState.playlist.findIndex(track => track.Id === currentTrackId);
     if (newIndex !== -1) {
       musicPlayerState.currentIndex = newIndex;
     }
   }
 
+  showNotification(notificationMessages[newShuffleState]);
   updatePlaylistModal();
+  saveUserSettings();
 }
+
+
 function createKeyboardHelpModal() {
   if (document.querySelector('#keyboardHelpModal')) return;
 

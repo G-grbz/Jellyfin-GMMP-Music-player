@@ -84,18 +84,64 @@ export function loadUserSettings() {
   const savedSettings = localStorage.getItem('musicPlayerSettings');
   if (savedSettings) {
     try {
+      const parsedSettings = JSON.parse(savedSettings);
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      if (typeof parsedSettings.shuffle === 'string') {
+        parsedSettings.shuffle = parsedSettings.shuffle === 'true';
+      }
+
       musicPlayerState.userSettings = {
         ...musicPlayerState.userSettings,
-        ...JSON.parse(savedSettings)
+        ...parsedSettings
       };
+
+      musicPlayerState.userSettings.repeatMode = 'none';
+
       musicPlayerState.audio.volume = musicPlayerState.userSettings.volume;
       if (musicPlayerState.volumeSlider) {
         musicPlayerState.volumeSlider.value = musicPlayerState.userSettings.volume;
       }
+
+      updateRepeatButtonUI();
+      updateShuffleButtonUI();
+
     } catch (e) {
       console.error('Ayarlar yüklenirken hata:', e);
     }
   }
+  saveUserSettings();
+}
+
+function updateRepeatButtonUI() {
+  const repeatBtn = document.querySelector('.player-btn .fa-redo')?.parentElement;
+  if (!repeatBtn) return;
+
+  const titles = {
+    'none': config.languageLabels?.repeatModOff || 'Tekrar kapalı',
+    'one': config.languageLabels?.repeatModOne || 'Tek şarkı tekrarı',
+    'all': config.languageLabels?.repeatModAll || 'Tüm liste tekrarı'
+  };
+
+  repeatBtn.title = titles[musicPlayerState.userSettings.repeatMode];
+  repeatBtn.innerHTML = musicPlayerState.userSettings.repeatMode === 'none' ?
+    '<i class="fas fa-redo"></i>' :
+    `<i class="fas fa-redo" style="color:#e91e63"></i>`;
+}
+
+function updateShuffleButtonUI() {
+  const shuffleBtn = document.querySelector('.player-btn .fa-random')?.parentElement;
+  if (!shuffleBtn) return;
+
+  const titles = {
+    true: config.languageLabels?.shuffleOn || 'Karıştırma açık',
+    false: config.languageLabels?.shuffleOff || 'Karıştırma kapalı'
+  };
+
+  shuffleBtn.title = titles[musicPlayerState.userSettings.shuffle];
+  shuffleBtn.innerHTML = musicPlayerState.userSettings.shuffle ?
+    '<i class="fas fa-random" style="color:#e91e63"></i>' :
+    '<i class="fas fa-random"></i>';
 }
 
 export function saveUserSettings() {

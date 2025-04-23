@@ -49,7 +49,7 @@ export function createModernPlayerUI() {
   };
 
   const closeBtn = document.createElement("div");
-  closeBtn.className = "kapat-buton";
+  closeBtn.className = "kapat-btn";
   closeBtn.innerHTML = '<i class="fas fa-times"></i>';
   closeBtn.title = config.languageLabels.close || "Close";
   closeBtn.onclick = togglePlayerVisibility;
@@ -68,7 +68,12 @@ export function createModernPlayerUI() {
 
   const title = document.createElement("div");
   title.id = "player-track-title";
-  title.textContent = config.languageLabels.noSongSelected;
+  title.classList.add("marquee-container");
+
+  const titleText = document.createElement("div");
+  titleText.className = "marquee-text";
+  titleText.textContent = config.languageLabels.noSongSelected;
+  title.appendChild(titleText);
 
   const artist = document.createElement("div");
   artist.id = "player-track-artist";
@@ -87,7 +92,7 @@ export function createModernPlayerUI() {
   const shuffleBtn = document.createElement("button");
   shuffleBtn.className = "player-btn";
   shuffleBtn.innerHTML = '<i class="fas fa-random"></i>';
-  shuffleBtn.title = `${config.languageLabels.repeatMod}: ${config.languageLabels.shuffleOne}`;
+  shuffleBtn.title = `${config.languageLabels.shuffle}: ${config.languageLabels.shuffleOff}`;
   shuffleBtn.onclick = toggleShuffle;
 
   const refreshBtn = document.createElement("button");
@@ -248,6 +253,7 @@ export function createModernPlayerUI() {
   musicPlayerState.modernPlayer = player;
   musicPlayerState.albumArtEl = albumArt;
   musicPlayerState.modernTitleEl = title;
+  musicPlayerState.modernTitleEl = titleText;
   musicPlayerState.modernArtistEl = artist;
   musicPlayerState.progressBar = progressBar;
   musicPlayerState.progress = progress;

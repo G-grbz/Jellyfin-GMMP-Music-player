@@ -4,7 +4,7 @@ const config = getConfig();
 let notificationQueue = [];
 let isShowing = false;
 
-export function showNotification(message, duration = 3000) {
+export function showNotification(message, duration = 2000) {
   notificationQueue.push({ message, duration });
   if (!isShowing) {
     processQueue();

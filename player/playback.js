@@ -13,8 +13,6 @@ const config = getConfig();
 
 const SEEK_RETRY_DELAY = 2000;
 const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
-const TRACK_CHANGE_DELAY = 1000;
-const ERROR_RETRY_DELAY = 2000;
 
 let currentCanPlayHandler = null;
 let currentPlayErrorHandler = null;
@@ -114,35 +112,35 @@ export function togglePlayPause() {
 
 export function playPrevious() {
   const { currentIndex, playlist, audio } = musicPlayerState;
-
   if (audio.currentTime > 3) {
     audio.currentTime = 0;
     return;
   }
 
-  cleanupAudioListeners();
+  const newIndex = currentIndex - 1 < 0 ? playlist.length - 1 : currentIndex - 1;
+  playTrack(newIndex);
 
-  setTimeout(() => {
-    const newIndex = currentIndex - 1 < 0 ? playlist.length - 1 : currentIndex - 1;
-    playTrack(newIndex);
-  }, TRACK_CHANGE_DELAY);
 }
 
 export function playNext() {
-  const { currentIndex, playlist, userSettings } = musicPlayerState;
+  const { currentIndex, playlist, userSettings, shuffleHistory = [] } = musicPlayerState;
 
-  cleanupAudioListeners();
+  if (userSettings.shuffleMode) {
+    let randomIndex;
+    do {
+      randomIndex = Math.floor(Math.random() * playlist.length);
+      if (shuffleHistory.length >= playlist.length) {
+        musicPlayerState.shuffleHistory = [];
+      }
+    } while (shuffleHistory.includes(randomIndex) && playlist.length > 1);
+    musicPlayerState.shuffleHistory = [...shuffleHistory, randomIndex];
+    playTrack(randomIndex);
+    showNotification(`Karışık mod: ${playlist[randomIndex].Name || playlist[randomIndex].title}`);
+    return;
+  }
 
-  setTimeout(() => {
-    if (userSettings.shuffleMode) {
-      const randomIndex = Math.floor(Math.random() * playlist.length);
-      playTrack(randomIndex);
-      return;
-    }
-
-    const newIndex = (currentIndex + 1) % playlist.length;
-    playTrack(newIndex);
-  }, TRACK_CHANGE_DELAY);
+  const newIndex = (currentIndex + 1) % playlist.length;
+  playTrack(newIndex);
 }
 
 export async function updateModernTrackInfo(track) {
@@ -328,7 +326,6 @@ export function playTrack(index) {
 
   const track = musicPlayerState.playlist[index];
   musicPlayerState.currentIndex = index;
-
   musicPlayerState.currentTrackName = track.Name || track.title || "Bilinmeyen Şarkı";
   musicPlayerState.currentAlbumName = track.Album || "Bilinmeyen Albüm";
 
@@ -356,8 +353,8 @@ export function playTrack(index) {
   musicPlayerState.audio.removeEventListener("ended", handleSongEnd);
   musicPlayerState.audio.removeEventListener("loadedmetadata", updateDuration);
   musicPlayerState.audio.removeEventListener("timeupdate", updateSyncedLyrics);
-  musicPlayerState.audio.addEventListener('canplay', handleCanPlay);
-  musicPlayerState.audio.addEventListener('error', handlePlayError);
+  musicPlayerState.audio.addEventListener('canplay', handleCanPlay, { once: true });
+  musicPlayerState.audio.addEventListener('error', handlePlayError, { once: true });
   setupAudioListeners();
 
   if (musicPlayerState.mediaSession) {
@@ -378,16 +375,11 @@ export function playTrack(index) {
         console.error("Oynatma hatası:", err);
         setTimeout(playNext, 2000);
       });
-
-    musicPlayerState.audio.removeEventListener('canplay', handleCanPlay);
-    musicPlayerState.audio.removeEventListener('error', handlePlayError);
   }
 
   function handlePlayError() {
     console.error("Parça yüklenemedi:", audioUrl);
     setTimeout(playNext, 2000);
-    musicPlayerState.audio.removeEventListener('canplay', handleCanPlay);
-    musicPlayerState.audio.removeEventListener('error', handlePlayError);
   }
 
   if (musicPlayerState.lyricsActive) {

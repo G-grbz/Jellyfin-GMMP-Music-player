@@ -91,17 +91,22 @@ export function setupAudioListeners() {
   audio.removeEventListener("ended", handleSongEnd);
   audio.removeEventListener("loadedmetadata", updateDuration);
   audio.removeEventListener("timeupdate", updateSyncedLyrics);
+  audio.removeEventListener("timeupdate", updateMediaPositionState);
+  audio.removeEventListener("loadedmetadata", updateMediaPositionState);
+
   audio.addEventListener("timeupdate", () => {
     updateProgress();
     updateMediaPositionState();
   });
 
-  audio.addEventListener("ended", () => {
-    handleSongEnd();
+  audio.addEventListener("ended", handleSongEnd, { once: true });
+
+  const endedHandler = () => {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = "none";
     }
-  });
+  };
+  audio.addEventListener("ended", endedHandler, { once: true });
 
   audio.addEventListener("loadedmetadata", () => {
     updateDuration();
@@ -235,13 +240,14 @@ export function updateProgress() {
   if (now - lastUpdateTime < 200 && !isDragging) return;
   lastUpdateTime = now;
 
-  const { audio, progress, currentTimeEl } = musicPlayerState;
+  const { audio, progress, currentTimeEl, progressHandle } = musicPlayerState;
   const dur = getEffectiveDuration();
 
   if (!progress || !currentTimeEl) return;
 
   if (!isFinite(dur) || dur <= 0) {
     progress.style.width = `0%`;
+    if (progressHandle) progressHandle.style.left = `0%`;
     currentTimeEl.textContent = formatTime(audio.currentTime || 0);
 
     if (!musicPlayerState.durationRetry) {
@@ -256,6 +262,7 @@ export function updateProgress() {
 
   const percent = Math.min(100, (audio.currentTime / dur) * 100);
   progress.style.width = `${percent}%`;
+  if (progressHandle) progressHandle.style.left = `${percent}%`;
   currentTimeEl.textContent = formatTime(audio.currentTime);
 }
 
@@ -268,6 +275,9 @@ export function updateDuration() {
 }
 
 export function cleanupMediaSession() {
+  if (positionUpdateInterval) {
+    clearInterval(positionUpdateInterval);
+  }
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', null);
     navigator.mediaSession.setActionHandler('pause', null);

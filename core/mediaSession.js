@@ -4,66 +4,114 @@ import { togglePlayPause, playPrevious, playNext } from "../player/playback.js";
 const DEFAULT_ARTWORK_URL = '/web/GMMP/src/images/defaultArt.png';
 
 export function initMediaSession() {
-  if (!('mediaSession' in navigator)) return;
+  if (!('mediaSession' in navigator)) {
+    console.warn('MediaSession API desteklenmiyor');
+    return;
+  }
 
   try {
-    musicPlayerState.mediaSession = navigator.mediaSession;
-
     const actionHandlers = {
-      play: () => {
-        if (musicPlayerState.audio.paused) {
-          togglePlayPause();
-        }
-      },
-      pause: () => {
-        if (!musicPlayerState.audio.paused) {
-          togglePlayPause();
-        }
-      },
-      previoustrack: playPrevious,
-      nexttrack: playNext,
-      seekbackward: () => {
-        musicPlayerState.audio.currentTime = Math.max(0, musicPlayerState.audio.currentTime - 10);
-        updatePositionState();
-      },
-      seekforward: () => {
-        musicPlayerState.audio.currentTime = Math.min(
-          musicPlayerState.audio.duration,
-          musicPlayerState.audio.currentTime + 10
-        );
-        updatePositionState();
-      },
-      seekto: (details) => {
-        if (details.seekTime !== undefined) {
-          musicPlayerState.audio.currentTime = details.seekTime;
-          updatePositionState();
-        }
-      },
-      stop: () => {
-        musicPlayerState.audio.pause();
-        musicPlayerState.audio.currentTime = 0;
-        updatePlaybackUI(false);
-      }
+      play: () => togglePlayPause(),
+      pause: () => togglePlayPause(),
+      previoustrack: () => playPrevious(),
+      nexttrack: () => playNext(),
+      seekbackward: (details) => handleSeekBackward(details),
+      seekforward: (details) => handleSeekForward(details),
+      seekto: (details) => handleSeekTo(details),
+      stop: () => handleStopAction()
     };
 
     Object.entries(actionHandlers).forEach(([action, handler]) => {
       try {
         navigator.mediaSession.setActionHandler(action, handler);
+        console.log(`MediaSession action handler registered: ${action}`);
       } catch (error) {
-        console.warn(`[MedyaOturumu] ${action} işleyici desteklenmiyor:`, error);
+        console.warn(`MediaSession ${action} handler not supported:`, error);
       }
     });
 
-    if (/Android/i.test(navigator.userAgent)) {
-      updatePositionState();
-    }
+    updatePlaybackState();
 
   } catch (error) {
-    console.error('[MedyaOturumu] Başlatma başarısız:', error);
+    console.error('MediaSession initialization failed:', error);
   }
 }
 
-function updatePositionState() {
+function setupHeadphoneControls() {
+  document.addEventListener('keydown', (e) => {
+    switch(e.key) {
+      case 'MediaPlayPause':
+        togglePlayPause();
+        break;
+      case 'MediaTrackPrevious':
+        playPrevious();
+        break;
+      case 'MediaTrackNext':
+        playNext();
+        break;
+    }
+  });
+
+  if ('bluetooth' in navigator) {
+    navigator.bluetooth.addEventListener('availabilitychanged', (event) => {
+      if (event.value) {
+        console.log('Bluetooth headphones connected');
+      }
+    });
+  }
+}
+
+function handlePlayAction() {
+  if (musicPlayerState.audio.paused) {
+    togglePlayPause();
+  }
+}
+
+function handlePauseAction() {
+  if (!musicPlayerState.audio.paused) {
+    togglePlayPause();
+  }
+}
+
+function handleSeekBackward() {
+  musicPlayerState.audio.currentTime = Math.max(0, musicPlayerState.audio.currentTime - 10);
+  updatePositionState();
+}
+
+function handleSeekForward() {
+  musicPlayerState.audio.currentTime = Math.min(
+    musicPlayerState.audio.duration,
+    musicPlayerState.audio.currentTime + 10
+  );
+  updatePositionState();
+}
+
+function handleSeekTo(details) {
+  if (details.seekTime !== undefined) {
+    musicPlayerState.audio.currentTime = details.seekTime;
+    updatePositionState();
+  }
+}
+
+function handleStopAction() {
+  musicPlayerState.audio.pause();
+  musicPlayerState.audio.currentTime = 0;
+  updatePlaybackUI(false);
+}
+
+function registerActionHandlers(handlers) {
+  Object.entries(handlers).forEach(([action, handler]) => {
+    try {
+      if (handler) {
+        navigator.mediaSession.setActionHandler(action, handler);
+      }
+    } catch (error) {
+      console.warn(`[MediaSession] ${action} handler not supported:`, error);
+    }
+  });
+}
+
+export function updatePositionState() {
   if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
   if (!musicPlayerState.audio) return;
 
@@ -74,10 +122,10 @@ function updatePositionState() {
     navigator.mediaSession.setPositionState({
       duration: duration,
       playbackRate: musicPlayerState.audio.playbackRate || 1,
-      position: musicPlayerState.audio.currentTime || 0
+      position: Math.min(musicPlayerState.audio.currentTime, duration - 0.1)
     });
   } catch (error) {
-    console.warn('[MedyaOturumu] Pozisyon güncelleme başarısız:', error);
+    console.warn('[MediaSession] Position update failed:', error);
   }
 }
 
@@ -85,48 +133,59 @@ export async function updateMediaMetadata(track) {
   if (!('mediaSession' in navigator)) return;
 
   try {
-    const title = track?.Name || track?.title || 'Bilinmeyen Şarkı';
-    const artist = track?.Artists?.join(", ") ||
-                  track?.ArtistItems?.map(a => a.Name).join(", ") ||
-                  track?.artist ||
-                  'Bilinmeyen Sanatçı';
-    const album = track?.Album || 'Bilinmeyen Albüm';
+    const metadata = {
+      title: track?.Name || track?.title || 'Unknown Track',
+      artist: track?.Artists?.join(", ") ||
+             track?.ArtistItems?.map(a => a.Name).join(", ") ||
+             track?.artist ||
+             'Unknown Artist',
+      album: track?.Album || 'Unknown Album',
+      artwork: await getTrackArtwork(track)
+    };
 
-    let artworkUrl;
-    if (track?.AlbumPrimaryImageTag || track?.PrimaryImageTag) {
-      const imageId = track.AlbumId || track.Id;
-      artworkUrl = `${window.location.origin}/Items/${imageId}/Images/Primary?quality=90&tag=${track.AlbumPrimaryImageTag || track.PrimaryImageTag}`;
-    } else {
-      artworkUrl = DEFAULT_ARTWORK_URL;
-    }
-
-    const artwork = [{
-      src: artworkUrl,
-      sizes: '512x512',
-      type: artworkUrl.endsWith('.png') ? 'image/png' : 'image/jpeg'
-    }];
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title,
-      artist,
-      album,
-      artwork
-    });
-
-    navigator.mediaSession.playbackState = musicPlayerState.audio?.paused ? 'durduruldu' : 'oynatılıyor';
-
-    if (/Android/i.test(navigator.userAgent)) {
-      updatePositionState();
-    }
+    navigator.mediaSession.metadata = new MediaMetadata(metadata);
+    updatePlaybackState();
 
   } catch (error) {
-    console.error('[MedyaOturumu] Bilgi güncelleme başarısız:', error);
+    console.error('[MediaSession] Metadata update failed:', error);
   }
 }
 
+async function getTrackArtwork(track) {
+  if (track?.AlbumPrimaryImageTag || track?.PrimaryImageTag) {
+    const imageId = track.AlbumId || track.Id;
+    return [{
+      src: `${window.location.origin}/Items/${imageId}/Images/Primary?quality=90&tag=${track.AlbumPrimaryImageTag || track.PrimaryImageTag}`,
+      sizes: '512x512',
+      type: 'image/jpeg'
+    }];
+  }
+  return [{
+    src: DEFAULT_ARTWORK_URL,
+    sizes: '512x512',
+    type: 'image/png'
+  }];
+}
+
+function updatePlaybackState() {
+  if (!musicPlayerState.audio) return;
+  navigator.mediaSession.playbackState = musicPlayerState.audio.paused ? 'paused' : 'playing';
+}
+
 function getEffectiveDuration() {
-  const audio = musicPlayerState.audio;
-  if (audio && isFinite(audio.duration)) return audio.duration;
-  if (isFinite(musicPlayerState.currentTrackDuration)) return musicPlayerState.currentTrackDuration;
+  const { audio, currentTrack } = musicPlayerState;
+
+  if (audio && isFinite(audio.duration) && audio.duration > 0) {
+    return audio.duration;
+  }
+
+  if (currentTrack?.RunTimeTicks) {
+    return currentTrack.RunTimeTicks / 10000000;
+  }
+
+  if (isFinite(musicPlayerState.currentTrackDuration)) {
+    return musicPlayerState.currentTrackDuration;
+  }
+
   return 0;
 }
