@@ -25,7 +25,7 @@ const updatePlaybackUI = (isPlaying) => {
   }
 
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.playbackState = isPlaying ? 'oynatılıyor' : 'durduruldu';
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   }
 };
 
@@ -332,6 +332,11 @@ async function getEmbeddedImage(trackId) {
 
 export function playTrack(index) {
   if (index < 0 || index >= musicPlayerState.playlist.length) return;
+
+   if (!musicPlayerState.mediaSessionInitialized && 'mediaSession' in navigator) {
+    initMediaSession();
+    musicPlayerState.mediaSessionInitialized = true;
+  }
 
   const track = musicPlayerState.playlist[index];
   musicPlayerState.currentIndex = index;
