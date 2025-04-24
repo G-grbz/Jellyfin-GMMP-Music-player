@@ -1,5 +1,9 @@
 export const languageLabels = {
   defaultLanguage: "Язык по умолчанию",
+  makePlaylistPublic: "Сделать плейлист общедоступным",
+  playlistCreatedButNotPublic: "Плейлист создан, но не удалось сделать его общедоступным",
+  playlistMakePublicFailed: "Не удалось сделать плейлист общедоступным",
+  kaydet: "Сохранить",
   ayarlar: "Настройки",
   simdioynat: "Сейчас играет",
   playlistCreateFailed: "Не удалось создать плейлист",
@@ -46,7 +50,7 @@ export const languageLabels = {
   refreshingPlaylist: "Обновление плейлиста...",
   playlistRefreshed: "Плейлист обновлен",
   refreshFailed: "Не удалось обновить",
-  ayarlarBaslik: "Настройки GP-плеера",
+  ayarlarBaslik: "Настройки GMMP-плеера",
   kaydet: "Сохранить",
   jellyfinPlaylists: "Плейлисты Jellyfin",
   selectPlaylist: "Выберите плейлист",

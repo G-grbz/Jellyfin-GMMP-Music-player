@@ -28,24 +28,95 @@ export function createPlaylistModal() {
   saveBtn.innerHTML = '<i class="fas fa-save"></i>';
   saveBtn.title = config.languageLabels.savePlaylist;
   saveBtn.onclick = async () => {
-    const playlistName = prompt(
-  config.languageLabels.enterPlaylistName,
-  `GMMP Oynatma Listesi ${new Date().toLocaleString('tr-TR', {
+  const modal = document.createElement("div");
+  modal.className = "playlist-save-modal";
+
+  const modalContent = document.createElement("div");
+  modalContent.className = "playlist-save-modal-content";
+
+  const modalHeader = document.createElement("div");
+  modalHeader.className = "playlist-save-modal-header";
+
+  const modalTitle = document.createElement("h3");
+  modalTitle.textContent = config.languageLabels.savePlaylist;
+  modalHeader.appendChild(modalTitle);
+
+  const closeButton = document.createElement("span");
+  closeButton.className = "playlist-save-modal-close";
+  closeButton.innerHTML = '<i class="fas fa-times"></i>';
+  closeButton.onclick = () => closeModal();
+  modalHeader.appendChild(closeButton);
+
+  const modalBody = document.createElement("div");
+  modalBody.className = "playlist-save-modal-body";
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = config.languageLabels.enterPlaylistName;
+  nameInput.value = `GMMP Oynatma Listesi ${new Date().toLocaleString('tr-TR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  })}`
-);
-    if (playlistName) {
+  })}`;
+
+  const publicLabel = document.createElement("label");
+  publicLabel.className = "public-checkbox-label";
+
+  const publicCheckbox = document.createElement("input");
+  publicCheckbox.type = "checkbox";
+  publicCheckbox.id = "playlist-public";
+  publicLabel.appendChild(publicCheckbox);
+  publicLabel.appendChild(document.createTextNode(config.languageLabels.makePlaylistPublic));
+
+  modalBody.appendChild(nameInput);
+  modalBody.appendChild(publicLabel);
+
+  const modalFooter = document.createElement("div");
+  modalFooter.className = "playlist-save-modal-footer";
+
+  const saveButton = document.createElement("button");
+  saveButton.className = "playlist-save-modal-save";
+  saveButton.textContent = config.languageLabels.kaydet;
+  saveButton.onclick = async () => {
+    if (nameInput.value) {
       try {
-        await saveCurrentPlaylistToJellyfin(playlistName);
+        await saveCurrentPlaylistToJellyfin(nameInput.value, publicCheckbox.checked);
+        closeModal();
       } catch (err) {
         console.error("Playlist kaydedilemedi:", err);
       }
     }
   };
+
+  modalFooter.appendChild(saveButton);
+  modalContent.appendChild(modalHeader);
+  modalContent.appendChild(modalBody);
+  modalContent.appendChild(modalFooter);
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      closeModal();
+    }
+  };
+
+  nameInput.focus();
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      closeModal();
+    }
+  };
+  document.addEventListener("keydown", handleKeyDown);
+
+  function closeModal() {
+    document.removeEventListener("keydown", handleKeyDown);
+    document.body.removeChild(modal);
+  }
+};
 
   const searchContainer = document.createElement("div");
   searchContainer.className = "playlist-search-container";

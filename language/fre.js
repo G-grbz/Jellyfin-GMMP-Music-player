@@ -1,5 +1,9 @@
 export const languageLabels = {
   defaultLanguage: "Langue par défaut",
+  makePlaylistPublic: "Rendre la playlist publique",
+  playlistCreatedButNotPublic: "La playlist a été créée mais n'a pas pu être rendue publique",
+  playlistMakePublicFailed: "Échec de la publication de la playlist",
+  kaydet: "Enregistrer",
   ayarlar: "Paramètres",
   simdioynat: "En cours de lecture",
   playlistCreateFailed: "Échec de la création de la playlist",
@@ -46,7 +50,7 @@ export const languageLabels = {
   refreshingPlaylist: "Actualisation de la playlist...",
   playlistRefreshed: "Playlist mise à jour",
   refreshFailed: "Échec de l'actualisation",
-  ayarlarBaslik: "Paramètres du lecteur GP",
+  ayarlarBaslik: "Paramètres du lecteur GMMP",
   kaydet: "Enregistrer",
   jellyfinPlaylists: "Playlists Jellyfin",
   selectPlaylist: "Sélectionner une playlist",

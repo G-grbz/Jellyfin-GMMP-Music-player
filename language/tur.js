@@ -1,5 +1,9 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  makePlaylistPublic: "Herkese Açık",
+  playlistCreatedButNotPublic: "Çalma listesi oluşturuldu ancak herkese açık yapılamadı",
+  playlistMakePublicFailed: "Çalma listesi herkese açık yapılamadı",
+  kaydet: "Kaydet",
   ayarlar: "Ayarlar",
   simdioynat: "Şimdi Oynatılan",
   playlistCreateFailed: "Oynatma listesi oluşturulamadı",
@@ -46,7 +50,7 @@ export const languageLabels = {
   refreshingPlaylist: "Çalma listesi yenileniyor...",
   playlistRefreshed: "Çalma listesi güncellendi",
   refreshFailed: "Yenileme başarısız oldu",
-  ayarlarBaslik: "GP Oynatıcı Ayarları",
+  ayarlarBaslik: "GMMP Oynatıcı Ayarları",
   kaydet: "Kaydet",
   jellyfinPlaylists: "Jellyfin Çalma Listeleri",
   selectPlaylist: "Bir Çalma Listesi Seç",

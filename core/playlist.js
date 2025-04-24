@@ -49,11 +49,10 @@ export async function refreshPlaylist() {
   }
 }
 
-export async function saveCurrentPlaylistToJellyfin(playlistName) {
+export async function saveCurrentPlaylistToJellyfin(playlistName, makePublic = false) {
   try {
     const token = getAuthToken();
     if (!token) throw new Error(config.languageLabels.noApiToken);
-
     const createResponse = await fetch('/Playlists', {
       method: 'POST',
       headers: {
@@ -63,13 +62,38 @@ export async function saveCurrentPlaylistToJellyfin(playlistName) {
       body: JSON.stringify({
         Name: playlistName || `Muzik Playlist ${new Date().toLocaleDateString()}`,
         Ids: musicPlayerState.playlist.map(item => item.Id),
-        UserId: musicPlayerState.userSettings.userId
+        UserId: musicPlayerState.userSettings.userId,
+        IsPublic: makePublic
       })
     });
 
     if (!createResponse.ok) throw new Error(config.languageLabels.playlistCreateFailed);
 
     const result = await createResponse.json();
+
+    if (makePublic) {
+      try {
+        const playlistId = result.Id;
+        const updateResponse = await fetch(`/Playlists/${playlistId}`, {
+          method: 'POST',
+          headers: {
+            "X-Emby-Token": token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            IsPublic: true
+          })
+        });
+
+        if (!updateResponse.ok) {
+          console.warn(config.languageLabels.playlistMakePublicFailed);
+          showNotification(config.languageLabels.playlistCreatedButNotPublic, 'warning');
+        }
+      } catch (updateError) {
+        console.warn("Playlist public ayarı güncellenemedi:", updateError);
+      }
+    }
+
     showNotification(config.languageLabels.playlistCreatedSuccessfully);
     return result;
   } catch (err) {

@@ -36,10 +36,33 @@ export const musicPlayerState = {
   metaContainer: null,
   mediaSession: null,
   id3TagsCache: {},
+  showRemaining: false,
   audio: (() => {
   const audio = new Audio();
   audio.preload = 'metadata';
   audio.crossOrigin = 'anonymous';
+
+
+  function fadeAudio(audio, fromVolume, toVolume, duration) {
+  const steps = 30;
+  const interval = duration / steps;
+  let currentStep = 0;
+
+  const volumeStep = (toVolume - fromVolume) / steps;
+  audio.volume = fromVolume;
+
+  return new Promise(resolve => {
+    const fade = setInterval(() => {
+      currentStep++;
+      audio.volume = Math.min(Math.max(audio.volume + volumeStep, 0), 1);
+      if (currentStep >= steps) {
+        clearInterval(fade);
+        resolve();
+      }
+    }, interval * 1000);
+  });
+}
+
 
   audio.addEventListener('play', () => {
     if (musicPlayerState.playPauseBtn) {
@@ -96,7 +119,9 @@ export function loadUserSettings() {
         ...parsedSettings
       };
 
-      musicPlayerState.userSettings.repeatMode = 'none';
+      if (!['none', 'one', 'all'].includes(musicPlayerState.userSettings.repeatMode)) {
+        musicPlayerState.userSettings.repeatMode = 'none';
+      }
 
       musicPlayerState.audio.volume = musicPlayerState.userSettings.volume;
       if (musicPlayerState.volumeSlider) {
@@ -114,7 +139,7 @@ export function loadUserSettings() {
 }
 
 function updateRepeatButtonUI() {
-  const repeatBtn = document.querySelector('.player-btn .fa-redo')?.parentElement;
+  const repeatBtn = document.querySelector('.player-btn .fa-repeat')?.parentElement;
   if (!repeatBtn) return;
 
   const titles = {
@@ -125,8 +150,8 @@ function updateRepeatButtonUI() {
 
   repeatBtn.title = titles[musicPlayerState.userSettings.repeatMode];
   repeatBtn.innerHTML = musicPlayerState.userSettings.repeatMode === 'none' ?
-    '<i class="fas fa-redo"></i>' :
-    `<i class="fas fa-redo" style="color:#e91e63"></i>`;
+    '<i class="fas fa-repeat"></i>' :
+    `<i class="fas fa-repeat" style="color:#e91e63"></i>`;
 }
 
 function updateShuffleButtonUI() {

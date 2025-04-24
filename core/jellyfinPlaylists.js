@@ -181,9 +181,10 @@ export async function showJellyfinPlaylistsModal() {
   });
   modalElement.appendChild(list);
 
-  const closeBtn = document.createElement('button');
+  const closeBtn = document.createElement('div');
   closeBtn.className = 'jellyfin-playlist-modal__close-btn';
-  closeBtn.textContent = config.languageLabels.close;
+  closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+  closeBtn.title = config.languageLabels.close;
   closeBtn.addEventListener('click', closeModal);
 
   modalElement.appendChild(closeBtn);

@@ -40,7 +40,7 @@ export function createModernPlayerUI() {
   const settingsLink = document.createElement("div");
   settingsLink.className = "settingsLink";
   settingsLink.innerHTML = '<i class="fas fa-cog"></i>';
-  settingsLink.title = config.languageLabels.ayarlar || "Ayar";
+  settingsLink.title = config.languageLabels.ayarlar || "Ayarlar";
   settingsLink.href = "#";
   settingsLink.onclick = (e) => {
     e.preventDefault();
@@ -85,7 +85,7 @@ export function createModernPlayerUI() {
 
   const repeatBtn = document.createElement("button");
   repeatBtn.className = "player-btn";
-  repeatBtn.innerHTML = '<i class="fas fa-redo"></i>';
+  repeatBtn.innerHTML = '<i class="fas fa-repeat"></i>';
   repeatBtn.title = config.languageLabels.repeatModOff;
   repeatBtn.onclick = toggleRepeatMode;
 
@@ -193,7 +193,7 @@ export function createModernPlayerUI() {
       scrollableControls.appendChild(btn);
     });
 
-    volumeSlider.style.display = "block";
+    volumeSlider.style.display = "none";
     controls.appendChild(scrollableControls);
   } else {
     controls.appendChild(repeatBtn);
@@ -219,6 +219,8 @@ export function createModernPlayerUI() {
   const timeContainer = document.createElement("div");
   timeContainer.className = "player-time-container";
 
+  musicPlayerState.timeContainer = timeContainer;
+
   const progressHandle = document.createElement('div');
   progressHandle.className = 'player-progress-handle';
 
@@ -236,6 +238,11 @@ export function createModernPlayerUI() {
   timeContainer.appendChild(durationEl);
   progressContainer.appendChild(progressBar);
   progressContainer.appendChild(timeContainer);
+
+  timeContainer.addEventListener("click", () => {
+    musicPlayerState.showRemaining = !musicPlayerState.showRemaining;
+    updateProgress();
+  });
 
   const lyricsContainer = document.createElement("div");
   lyricsContainer.id = "player-lyrics-container";

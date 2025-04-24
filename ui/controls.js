@@ -114,7 +114,7 @@ export function toggleRepeatMode() {
   const nextIndex = (currentIndex + 1) % modes.length;
   musicPlayerState.userSettings.repeatMode = modes[nextIndex];
 
-  const repeatBtn = document.querySelector('.player-btn .fa-redo')?.parentElement;
+  const repeatBtn = document.querySelector('.player-btn .fa-repeat, .player-btn .fa-repeat-1')?.parentElement;
   if (!repeatBtn) {
     console.warn('Tekrar butonu bulunamadı');
     return;
@@ -132,18 +132,23 @@ export function toggleRepeatMode() {
     'all': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModAll || 'tüm liste'}`,
   };
 
+  let iconClass = 'fa-repeat';
+  if (musicPlayerState.userSettings.repeatMode === 'one') {
+    iconClass = 'fa-repeat-1';
+  }
+
+  const isActive = musicPlayerState.userSettings.repeatMode !== 'none';
   repeatBtn.title = titles[musicPlayerState.userSettings.repeatMode];
-  repeatBtn.innerHTML = musicPlayerState.userSettings.repeatMode === 'none' ?
-    '<i class="fas fa-redo"></i>' :
-    `<i class="fas fa-redo" style="color:#e91e63"></i>`;
+  repeatBtn.innerHTML = `<i class="fas ${iconClass}" style="${isActive ? 'color:#e91e63' : ''}"></i>`;
 
   showNotification(
-  notificationMessages[musicPlayerState.userSettings.repeatMode],
-  1500,
-  'repeat'
-);
+    notificationMessages[musicPlayerState.userSettings.repeatMode],
+    1500,
+    'repeat'
+  );
   saveUserSettings();
 }
+
 
 export function toggleShuffle() {
   if (!musicPlayerState || !musicPlayerState.userSettings) {

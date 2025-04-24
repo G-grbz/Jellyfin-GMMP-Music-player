@@ -212,19 +212,25 @@ function handleTouchEnd() {
 }
 
 function seekToPosition(clientX) {
-  const { audio, progressBar, progressHandle } = musicPlayerState;
+  const { audio, progressBar, progressHandle, durationEl } = musicPlayerState;
   if (!audio || !progressBar) return;
 
   const rect = progressBar.getBoundingClientRect();
   const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
   const percent = (x / rect.width) * 100;
-  const seekTime = (percent / 100) * getEffectiveDuration();
+  const dur = getEffectiveDuration();
+  const seekTime = (percent / 100) * dur;
 
   if (isFinite(seekTime)) {
     audio.currentTime = seekTime;
     progressHandle.style.left = `${percent}%`;
     updateProgress();
     updateMediaPositionState();
+
+    const remaining = Math.max(0, dur - audio.currentTime);
+    if (durationEl) {
+      durationEl.textContent = `-${formatTime(remaining)}`;
+    }
   }
 }
 
@@ -240,30 +246,28 @@ export function updateProgress() {
   if (now - lastUpdateTime < 200 && !isDragging) return;
   lastUpdateTime = now;
 
-  const { audio, progress, currentTimeEl, progressHandle } = musicPlayerState;
+  const { audio, progress, currentTimeEl, progressHandle, durationEl, showRemaining } = musicPlayerState;
   const dur = getEffectiveDuration();
 
-  if (!progress || !currentTimeEl) return;
-
+  if (!progress || !currentTimeEl || !durationEl) return;
   if (!isFinite(dur) || dur <= 0) {
     progress.style.width = `0%`;
     if (progressHandle) progressHandle.style.left = `0%`;
     currentTimeEl.textContent = formatTime(audio.currentTime || 0);
-
-    if (!musicPlayerState.durationRetry) {
-      musicPlayerState.durationRetry = setTimeout(() => {
-        updateDuration();
-        updateProgress();
-        delete musicPlayerState.durationRetry;
-      }, 1000);
-    }
+    durationEl.textContent = formatTime(dur);
     return;
   }
-
   const percent = Math.min(100, (audio.currentTime / dur) * 100);
   progress.style.width = `${percent}%`;
   if (progressHandle) progressHandle.style.left = `${percent}%`;
+
   currentTimeEl.textContent = formatTime(audio.currentTime);
+  if (showRemaining) {
+    const remaining = Math.max(0, dur - audio.currentTime);
+    durationEl.textContent = `-${formatTime(remaining)}`;
+  } else {
+    durationEl.textContent = formatTime(dur);
+  }
 }
 
 export function updateDuration() {
