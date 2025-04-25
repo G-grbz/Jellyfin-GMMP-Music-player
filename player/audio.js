@@ -1,13 +1,6 @@
 import { musicPlayerState } from "../core/state.js";
 import { playNext } from "./playback.js";
 
-export function setupAudioListeners() {
-  musicPlayerState.audio.addEventListener("timeupdate", updateProgress);
-  musicPlayerState.audio.addEventListener("ended", handleSongEnd);
-  musicPlayerState.audio.addEventListener("loadedmetadata", updateDuration);
-  musicPlayerState.audio.addEventListener("timeupdate", updateSyncedLyrics);
-}
-
 export function handleSongEnd() {
   switch(musicPlayerState.userSettings.repeatMode) {
     case 'one':

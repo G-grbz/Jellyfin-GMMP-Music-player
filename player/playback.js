@@ -50,22 +50,11 @@ function cleanupAudioListeners() {
   const audio = musicPlayerState.audio;
   if (!audio) return;
 
-  const events = {
-    'canplay': currentCanPlayHandler,
-    'error': currentPlayErrorHandler,
-    'timeupdate': updateProgress,
-    'ended': handleSongEnd,
-    'loadedmetadata': handleLoadedMetadata
-  };
-
-  Object.entries(events).forEach(([event, handler]) => {
-    if (handler) audio.removeEventListener(event, handler);
-  });
-
   audio.pause();
   audio.src = '';
   audio.removeAttribute('src');
   audio.load();
+  audio.onended = null;
 }
 
 function handleSongEnd() {
@@ -115,16 +104,15 @@ export function playPrevious() {
   if (audio.currentTime > 3) {
     audio.currentTime = 0;
     showNotification(
-  `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-  1500,
-  'playnow'
-);
+      `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
+      1500,
+      'playnow'
+    );
     return;
   }
 
   const newIndex = currentIndex - 1 < 0 ? playlist.length - 1 : currentIndex - 1;
   playTrack(newIndex);
-
 }
 
 export function playNext() {
@@ -141,10 +129,10 @@ export function playNext() {
     musicPlayerState.shuffleHistory = [...shuffleHistory, randomIndex];
     playTrack(randomIndex);
     showNotification(
-  `Karışık mod: ${playlist[randomIndex].Name || playlist[randomIndex].title}`,
-  1500,
-  'playmode'
-);
+      `Karışık mod: ${playlist[randomIndex].Name || playlist[randomIndex].title}`,
+      1500,
+      'playmode'
+    );
     return;
   }
 
@@ -160,9 +148,9 @@ export async function updateModernTrackInfo(track) {
 
   const title = track.Name || track.title || config.languageLabels.unknownTrack;
   const artists = track.Artists ||
-                 (track.ArtistItems?.map(a => a.Name) || []) ||
-                 (track.artist ? [track.artist] : []) ||
-                 [config.languageLabels.unknownArtist];
+                   (track.ArtistItems?.map(a => a.Name) || []) ||
+                   (track.artist ? [track.artist] : []) ||
+                   [config.languageLabels.unknownArtist];
 
   musicPlayerState.modernTitleEl.textContent = title;
   musicPlayerState.modernArtistEl.textContent = artists.join(", ");
@@ -331,9 +319,11 @@ async function getEmbeddedImage(trackId) {
 }
 
 export function playTrack(index) {
+  cleanupAudioListeners();
+
   if (index < 0 || index >= musicPlayerState.playlist.length) return;
 
-   if (!musicPlayerState.mediaSessionInitialized && 'mediaSession' in navigator) {
+  if (!musicPlayerState.mediaSessionInitialized && 'mediaSession' in navigator) {
     initMediaSession();
     musicPlayerState.mediaSessionInitialized = true;
   }
@@ -344,63 +334,32 @@ export function playTrack(index) {
   musicPlayerState.currentAlbumName = track.Album || "Bilinmeyen Albüm";
 
   showNotification(
-  `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-  1500,
-  'playnow'
-);
+    `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
+    1500,
+    'playnow'
+  );
 
   updateModernTrackInfo(track);
   updatePlaylistModal();
+
+  const audio = musicPlayerState.audio;
+  audio.onended = handleSongEnd;
+  audio.addEventListener('canplay', handleCanPlay, { once: true });
+  audio.addEventListener('error', handlePlayError, { once: true });
+  setupAudioListeners();
 
   if (/Linux/i.test(navigator.userAgent)) {
     const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
     if (imageTag) {
       const imageId = track.AlbumId || track.Id;
       const artworkUrl = `${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=512&fillWidth=512&quality=90&tag=${imageTag}`;
-      musicPlayerState.currentArtwork = [{
-        src: artworkUrl,
-        sizes: '512x512',
-        type: 'image/jpeg'
-      }];
+      musicPlayerState.currentArtwork = [{ src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }];
     }
   }
 
   const audioUrl = `${window.location.origin}/Audio/${track.Id}/stream.mp3?Static=true`;
-  musicPlayerState.audio.src = audioUrl;
-  musicPlayerState.audio.removeEventListener('canplay', handleCanPlay);
-  musicPlayerState.audio.removeEventListener('error', handlePlayError);
-  musicPlayerState.audio.removeEventListener("timeupdate", updateProgress);
-  musicPlayerState.audio.removeEventListener("ended", handleSongEnd);
-  musicPlayerState.audio.removeEventListener("loadedmetadata", updateDuration);
-  musicPlayerState.audio.removeEventListener("timeupdate", updateSyncedLyrics);
-  musicPlayerState.audio.addEventListener('canplay', handleCanPlay, { once: true });
-  musicPlayerState.audio.addEventListener('error', handlePlayError, { once: true });
-  setupAudioListeners();
-
-  if (musicPlayerState.mediaSession) {
-    musicPlayerState.mediaSession.playbackState = 'none';
-  }
-
-  musicPlayerState.audio.load();
-
-  function handleCanPlay() {
-    musicPlayerState.audio.play()
-      .then(() => {
-        musicPlayerState.playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-        if (musicPlayerState.mediaSession) {
-          musicPlayerState.mediaSession.playbackState = 'playing';
-        }
-      })
-      .catch(err => {
-        console.error("Oynatma hatası:", err);
-        setTimeout(playNext, 2000);
-      });
-  }
-
-  function handlePlayError() {
-    console.error("Parça yüklenemedi:", audioUrl);
-    setTimeout(playNext, 2000);
-  }
+  audio.src = audioUrl;
+  audio.load();
 
   if (musicPlayerState.lyricsActive) {
     fetchLyrics();
