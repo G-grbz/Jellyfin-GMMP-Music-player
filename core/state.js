@@ -37,6 +37,8 @@ export const musicPlayerState = {
   mediaSession: null,
   id3TagsCache: {},
   showRemaining: false,
+  selectionMode: false,
+  selectedItems: [],
   audio: (() => {
   const audio = new Audio();
   audio.preload = 'metadata';

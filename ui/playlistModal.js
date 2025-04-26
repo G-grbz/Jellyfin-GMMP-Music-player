@@ -1,7 +1,10 @@
 import { musicPlayerState } from "../core/state.js";
 import { getConfig } from "../core/configLoader.js";
+import { showNotification } from "./notification.js";
 import { playTrack } from "../player/playback.js";
-import { saveCurrentPlaylistToJellyfin } from "../core/playlist.js";
+import { saveCurrentPlaylistToJellyfin, removeItemsFromPlaylist } from "../core/playlist.js";
+import { fetchJellyfinPlaylists } from "../core/jellyfinPlaylists.js";
+
 
 const config = getConfig();
 
@@ -23,11 +26,74 @@ export function createPlaylistModal() {
   closeBtn.innerHTML = '<i class="fas fa-times"></i>';
   closeBtn.onclick = togglePlaylistModal;
 
+  const selectAllBtn = document.createElement("div");
+  selectAllBtn.className = "playlist-select-all";
+  selectAllBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+  selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç/Bırak";
+  selectAllBtn.onclick = (e) => {
+    e.stopPropagation();
+    toggleSelectAll();
+  };
+
   const saveBtn = document.createElement("div");
   saveBtn.className = "playlist-save";
   saveBtn.innerHTML = '<i class="fas fa-save"></i>';
   saveBtn.title = config.languageLabels.savePlaylist;
-  saveBtn.onclick = async () => {
+  saveBtn.onclick = showSaveModal;
+
+  const searchContainer = document.createElement("div");
+  searchContainer.className = "playlist-search-container";
+
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.placeholder = config.languageLabels.searchTracks;
+  searchInput.className = "playlist-search-input";
+
+  searchInput.addEventListener("input", (e) => {
+    filterPlaylistItems(e.target.value.toLowerCase());
+  });
+
+  searchContainer.appendChild(searchInput);
+  container.appendChild(searchContainer);
+
+  const removeSelectedBtn = document.createElement("div");
+removeSelectedBtn.className = "playlist-remove-selected";
+removeSelectedBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+removeSelectedBtn.title = config.languageLabels.removeSelected || "Seçilenleri Kaldır";
+removeSelectedBtn.onclick = (e) => {
+  e.stopPropagation();
+  showRemoveSelectedConfirmModal();
+};
+
+
+  const headerButtons = document.createElement("div");
+  headerButtons.className = "playlist-header-buttons";
+  headerButtons.appendChild(selectAllBtn);
+  headerButtons.appendChild(removeSelectedBtn);
+  headerButtons.appendChild(saveBtn);
+  headerButtons.appendChild(closeBtn);
+
+  const itemsContainer = document.createElement("div");
+  itemsContainer.className = "playlist-items";
+
+  header.appendChild(title);
+  header.appendChild(headerButtons);
+  container.appendChild(header);
+  container.appendChild(itemsContainer);
+  modal.appendChild(container);
+  document.body.appendChild(modal);
+
+  musicPlayerState.playlistModal = modal;
+  musicPlayerState.playlistItemsContainer = itemsContainer;
+  musicPlayerState.playlistSearchInput = searchInput;
+  musicPlayerState.selectedTracks = new Set();
+}
+
+async function showSaveModal() {
+  const selectedCount = musicPlayerState.selectedTracks.size;
+  const totalCount = musicPlayerState.playlist.length;
+  const saveSelected = selectedCount > 0;
+
   const modal = document.createElement("div");
   modal.className = "playlist-save-modal";
 
@@ -50,6 +116,8 @@ export function createPlaylistModal() {
   const modalBody = document.createElement("div");
   modalBody.className = "playlist-save-modal-body";
 
+  const nameInputContainer = document.createElement("div");
+  nameInputContainer.className = "name-input-container";
   const nameInput = document.createElement("input");
   nameInput.type = "text";
   nameInput.placeholder = config.languageLabels.enterPlaylistName;
@@ -60,18 +128,90 @@ export function createPlaylistModal() {
     hour: '2-digit',
     minute: '2-digit'
   })}`;
+  nameInputContainer.appendChild(nameInput);
 
   const publicLabel = document.createElement("label");
   publicLabel.className = "public-checkbox-label";
-
   const publicCheckbox = document.createElement("input");
   publicCheckbox.type = "checkbox";
   publicCheckbox.id = "playlist-public";
   publicLabel.appendChild(publicCheckbox);
   publicLabel.appendChild(document.createTextNode(config.languageLabels.makePlaylistPublic));
 
-  modalBody.appendChild(nameInput);
+  const actionContainer = document.createElement("div");
+  actionContainer.className = "action-container";
+
+  const newPlaylistOption = document.createElement("div");
+  newPlaylistOption.className = "radio-option";
+  const newPlaylistRadio = document.createElement("input");
+  newPlaylistRadio.type = "radio";
+  newPlaylistRadio.name = "saveAction";
+  newPlaylistRadio.id = "new-playlist";
+  newPlaylistRadio.value = "new";
+  newPlaylistRadio.checked = true;
+  newPlaylistRadio.onchange = togglePlaylistSelection;
+  const newPlaylistLabel = document.createElement("label");
+  newPlaylistLabel.htmlFor = "new-playlist";
+  newPlaylistLabel.textContent = config.languageLabels.newPlaylist || "Yeni liste oluştur";
+  newPlaylistOption.appendChild(newPlaylistRadio);
+  newPlaylistOption.appendChild(newPlaylistLabel);
+
+  const existingPlaylistOption = document.createElement("div");
+  existingPlaylistOption.className = "radio-option";
+  const existingPlaylistRadio = document.createElement("input");
+  existingPlaylistRadio.type = "radio";
+  existingPlaylistRadio.name = "saveAction";
+  existingPlaylistRadio.id = "existing-playlist";
+  existingPlaylistRadio.value = "existing";
+  existingPlaylistRadio.onchange = togglePlaylistSelection;
+  const existingPlaylistLabel = document.createElement("label");
+  existingPlaylistLabel.htmlFor = "existing-playlist";
+  existingPlaylistLabel.textContent = config.languageLabels.addToExisting || "Mevcut listeye ekle";
+  existingPlaylistOption.appendChild(existingPlaylistRadio);
+  existingPlaylistOption.appendChild(existingPlaylistLabel);
+
+  actionContainer.appendChild(newPlaylistOption);
+  actionContainer.appendChild(existingPlaylistOption);
+
+  const playlistSelectContainer = document.createElement("div");
+  playlistSelectContainer.className = "playlist-select-container";
+  playlistSelectContainer.style.display = "none";
+
+  const playlistSelectLabel = document.createElement("label");
+  playlistSelectLabel.textContent = config.languageLabels.selectPlaylist || "Liste seçin:";
+
+  const playlistSelect = document.createElement("select");
+  playlistSelect.className = "playlist-select";
+  playlistSelect.disabled = true;
+
+  const loadingOption = document.createElement("option");
+  loadingOption.value = "";
+  loadingOption.textContent = config.languageLabels.loadingPlaylists || "Listeler yükleniyor...";
+  playlistSelect.appendChild(loadingOption);
+
+  playlistSelectContainer.appendChild(playlistSelectLabel);
+  playlistSelectContainer.appendChild(playlistSelect);
+
+  const selectedOnlyContainer = document.createElement("div");
+  selectedOnlyContainer.className = "selected-only-container";
+  const selectedOnlyCheckbox = document.createElement("input");
+  selectedOnlyCheckbox.type = "checkbox";
+  selectedOnlyCheckbox.id = "selected-only";
+  selectedOnlyCheckbox.checked = saveSelected;
+  selectedOnlyCheckbox.disabled = (selectedCount === 0);
+  const selectedOnlyLabel = document.createElement("label");
+  selectedOnlyLabel.htmlFor = "selected-only";
+  selectedOnlyLabel.textContent = saveSelected
+    ? `${config.languageLabels.saveSelected || "Seçilenleri kaydet"} (${selectedCount})`
+    : config.languageLabels.noSelection || "Hiç parça seçilmediii";
+  selectedOnlyContainer.appendChild(selectedOnlyCheckbox);
+  selectedOnlyContainer.appendChild(selectedOnlyLabel);
+
+  modalBody.appendChild(nameInputContainer);
   modalBody.appendChild(publicLabel);
+  modalBody.appendChild(actionContainer);
+  modalBody.appendChild(playlistSelectContainer);
+  modalBody.appendChild(selectedOnlyContainer);
 
   const modalFooter = document.createElement("div");
   modalFooter.className = "playlist-save-modal-footer";
@@ -79,16 +219,30 @@ export function createPlaylistModal() {
   const saveButton = document.createElement("button");
   saveButton.className = "playlist-save-modal-save";
   saveButton.textContent = config.languageLabels.kaydet;
-  saveButton.onclick = async () => {
-    if (nameInput.value) {
-      try {
-        await saveCurrentPlaylistToJellyfin(nameInput.value, publicCheckbox.checked);
-        closeModal();
-      } catch (err) {
-        console.error("Playlist kaydedilemedi:", err);
-      }
-    }
-  };
+saveButton.onclick = async () => {
+  const tracksToSave = selectedOnlyCheckbox.checked
+    ? Array.from(musicPlayerState.selectedTracks).map(i => musicPlayerState.playlist[i])
+    : musicPlayerState.playlist;
+
+  const isNew = newPlaylistRadio.checked;
+  const playlistId = isNew ? null : playlistSelect.value;
+  const playlistName = isNew
+    ? nameInput.value
+    : playlistSelect.options[playlistSelect.selectedIndex].text;
+
+  try {
+    await saveCurrentPlaylistToJellyfin(
+      playlistName,
+      publicCheckbox.checked,
+      tracksToSave,
+      isNew,
+      playlistId
+    );
+    closeModal();
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   modalFooter.appendChild(saveButton);
   modalContent.appendChild(modalHeader);
@@ -96,6 +250,8 @@ export function createPlaylistModal() {
   modalContent.appendChild(modalFooter);
   modal.appendChild(modalContent);
   document.body.appendChild(modal);
+
+  loadExistingPlaylists(playlistSelect);
 
   modal.onclick = (e) => {
     if (e.target === modal) {
@@ -112,45 +268,80 @@ export function createPlaylistModal() {
   };
   document.addEventListener("keydown", handleKeyDown);
 
+  function togglePlaylistSelection() {
+    const isNew = newPlaylistRadio.checked;
+    nameInputContainer.style.display = isNew ? "block" : "none";
+    playlistSelectContainer.style.display = isNew ? "none" : "block";
+    publicLabel.style.display = isNew ? "block" : "none";
+  }
+
   function closeModal() {
     document.removeEventListener("keydown", handleKeyDown);
     document.body.removeChild(modal);
   }
-};
+}
 
-  const searchContainer = document.createElement("div");
-  searchContainer.className = "playlist-search-container";
+async function loadExistingPlaylists(selectElement) {
+  try {
+    const playlists = await fetchJellyfinPlaylists();
+    selectElement.innerHTML = '';
 
-  const searchInput = document.createElement("input");
-  searchInput.type = "text";
-  searchInput.placeholder = config.languageLabels.searchTracks;
-  searchInput.className = "playlist-search-input";
+    if (playlists.length === 0) {
+      const noPlaylistOption = document.createElement("option");
+      noPlaylistOption.value = "";
+      noPlaylistOption.textContent = config.languageLabels.noPlaylists || "Hiç çalma listesi bulunamadı";
+      selectElement.appendChild(noPlaylistOption);
+      selectElement.disabled = true;
+      return;
+    }
 
-  searchInput.addEventListener("input", (e) => {
-    filterPlaylistItems(e.target.value.toLowerCase());
-  });
+    playlists.sort((a, b) => a.name.localeCompare(b.name));
 
-  searchContainer.appendChild(searchInput);
-  container.appendChild(searchContainer);
+    playlists.forEach(playlist => {
+      const option = document.createElement("option");
+      option.value = playlist.id;
+      option.textContent = playlist.name;
+      selectElement.appendChild(option);
+    });
 
-  const headerButtons = document.createElement("div");
-  headerButtons.className = "playlist-header-buttons";
-  headerButtons.appendChild(saveBtn);
-  headerButtons.appendChild(closeBtn);
+    selectElement.disabled = false;
+  } catch (error) {
+    console.error("Listeler yüklenirken hata:", error);
+    selectElement.innerHTML = '';
 
-  const itemsContainer = document.createElement("div");
-  itemsContainer.className = "playlist-items";
+    const errorOption = document.createElement("option");
+    errorOption.value = "";
+    errorOption.textContent = config.languageLabels.loadError || "Listeler yüklenemedi";
+    selectElement.appendChild(errorOption);
+    selectElement.disabled = true;
+  }
+}
 
-  header.appendChild(title);
-  header.appendChild(headerButtons);
-  container.appendChild(header);
-  container.appendChild(itemsContainer);
-  modal.appendChild(container);
-  document.body.appendChild(modal);
+function toggleSelectAll() {
+  const itemsContainer = musicPlayerState.playlistItemsContainer;
+  const items = itemsContainer.querySelectorAll(".playlist-item");
+  const checkboxes = itemsContainer.querySelectorAll(".playlist-item-checkbox");
+  const selectAllBtn = document.querySelector(".playlist-select-all");
 
-  musicPlayerState.playlistModal = modal;
-  musicPlayerState.playlistItemsContainer = itemsContainer;
-  musicPlayerState.playlistSearchInput = searchInput;
+  const allSelected = items.length === musicPlayerState.selectedTracks.size;
+
+  if (allSelected) {
+    musicPlayerState.selectedTracks.clear();
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      checkbox.parentElement.classList.remove("selected");
+    });
+    selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+    selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç";
+  } else {
+    musicPlayerState.selectedTracks = new Set([...Array(items.length).keys()]);
+    checkboxes.forEach((checkbox, index) => {
+      checkbox.checked = true;
+      checkbox.parentElement.classList.add("selected");
+    });
+    selectAllBtn.innerHTML = '<i class="fa-solid fa-minus"></i>';
+    selectAllBtn.title = config.languageLabels.deselectAll || "Seçimi Kaldır";
+  }
 }
 
 let outsideClickListener = null;
@@ -161,6 +352,17 @@ export function togglePlaylistModal(e) {
   if (modal.style.display === "flex") {
     modal.style.display = "none";
     removeOutsideClickListener();
+    musicPlayerState.selectedTracks.clear();
+    const checkboxes = document.querySelectorAll(".playlist-item-checkbox");
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      checkbox.parentElement.classList.remove("selected");
+    });
+    const selectAllBtn = document.querySelector(".playlist-select-all");
+    if (selectAllBtn) {
+      selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+      selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç";
+    }
   } else {
     updatePlaylistModal();
     modal.style.display = "flex";
@@ -179,7 +381,7 @@ export function togglePlaylistModal(e) {
       modal.style.top = "";
     }
 
-  setTimeout(() => {
+    setTimeout(() => {
       const activeItem = musicPlayerState.playlistItemsContainer.querySelector(".playlist-item.active");
       if (activeItem) {
         activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -194,26 +396,30 @@ function addOutsideClickListener() {
   if (outsideClickListener) return;
 
   outsideClickListener = (event) => {
-    const modal = musicPlayerState.playlistModal;
-    if (!modal.contains(event.target)) {
-      modal.style.display = "none";
-      removeOutsideClickListener();
+    const playlistModal = musicPlayerState.playlistModal;
+    const saveModal     = document.querySelector('.playlist-save-modal');
+    if (
+      (playlistModal && playlistModal.contains(event.target)) ||
+      (saveModal     && saveModal.contains(event.target))
+    ) {
+      return;
     }
+
+    playlistModal.style.display = 'none';
+    removeOutsideClickListener();
+    musicPlayerState.selectedTracks.clear();
   };
 
   setTimeout(() => {
-    document.addEventListener("click", outsideClickListener);
+    document.addEventListener('click', outsideClickListener);
   }, 0);
 }
 
-
 function removeOutsideClickListener() {
   if (!outsideClickListener) return;
-
-  document.removeEventListener("click", outsideClickListener);
+  document.removeEventListener('click', outsideClickListener);
   outsideClickListener = null;
 }
-
 
 export function updatePlaylistModal() {
   const itemsContainer = musicPlayerState.playlistItemsContainer;
@@ -221,8 +427,38 @@ export function updatePlaylistModal() {
 
   musicPlayerState.playlist.forEach((track, index) => {
     const item = document.createElement("div");
-    item.className = `playlist-item ${index === musicPlayerState.currentIndex ? "active" : ""}`;
-    item.onclick = () => playTrack(index);
+    item.className = `playlist-item ${index === musicPlayerState.currentIndex ? "active" : ""} ${
+      musicPlayerState.selectedTracks.has(index) ? "selected" : ""
+    }`;
+
+    const removeBtn = document.createElement('span');
+    removeBtn.className = 'playlist-item-remove';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = config.languageLabels.removeTrack || 'Parçayı kaldır';
+    removeBtn.onclick = (e) => {
+      e.stopPropagation();
+      showRemoveConfirmModal(index, track.Name || config.languageLabels.unknownTrack);
+    };
+    item.appendChild(removeBtn);
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "playlist-item-checkbox";
+    checkbox.checked = musicPlayerState.selectedTracks.has(index);
+    checkbox.onclick = (e) => {
+      e.stopPropagation();
+      if (checkbox.checked) {
+        musicPlayerState.selectedTracks.add(index);
+        item.classList.add("selected");
+      } else {
+        musicPlayerState.selectedTracks.delete(index);
+        item.classList.remove("selected");
+      }
+    };
+
+    const itemContent = document.createElement("div");
+    itemContent.className = "playlist-item-content";
+    itemContent.onclick = () => playTrack(index);
 
     const img = document.createElement("div");
     img.className = "playlist-item-img";
@@ -245,8 +481,10 @@ export function updatePlaylistModal() {
 
     info.appendChild(title);
     info.appendChild(artist);
-    item.appendChild(img);
-    item.appendChild(info);
+    itemContent.appendChild(img);
+    itemContent.appendChild(info);
+    item.appendChild(checkbox);
+    item.appendChild(itemContent);
     itemsContainer.appendChild(item);
   });
 
@@ -256,18 +494,137 @@ export function updatePlaylistModal() {
   }
 }
 
-
 function filterPlaylistItems(searchTerm) {
   const items = musicPlayerState.playlistItemsContainer.querySelectorAll(".playlist-item");
 
-  items.forEach(item => {
-    const title = item.querySelector(".playlist-item-title").textContent.toLowerCase();
-    const artist = item.querySelector(".playlist-item-artist").textContent.toLowerCase();
+  items.forEach((item) => {
+    const title = item.querySelector(".playlist-item-title")?.textContent.toLowerCase() || "";
+    const artist = item.querySelector(".playlist-item-artist")?.textContent.toLowerCase() || "";
 
     if (title.includes(searchTerm) || artist.includes(searchTerm)) {
-      item.style.display = "flex";
+      item.style.display = "";
     } else {
       item.style.display = "none";
     }
+  });
+}
+
+export function showRemoveConfirmModal(trackIndex, trackName) {
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-overlay";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  dialog.innerHTML = `
+    <p><strong>${trackName}</strong> ${config.languageLabels.confirmRemove || "şarkı listesinden kaldırılsın mı?"}</p>
+    <button class="confirm-yes">${config.languageLabels.yes || "Evet"}</button>
+    <button class="confirm-no">${config.languageLabels.no || "Hayır"}</button>
+  `;
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", e => {
+    e.stopPropagation();
+    if (e.target === overlay) overlay.remove();
+  });
+
+  dialog.querySelector(".confirm-yes").addEventListener("click", async e => {
+    e.stopPropagation();
+    try {
+      const playlistId = musicPlayerState.currentPlaylistId;
+      const trackId    = musicPlayerState.playlist[trackIndex].Id;
+
+      if (playlistId) {
+        await removeItemsFromPlaylist(playlistId, [trackId]);
+        showNotification(config.languageLabels.trackRemoved || "Parça kaldırıldı", "success");
+      } else {
+        showNotification(config.languageLabels.trackRemovedLocal || "Parça listeden kaldırıldı", "info");
+      }
+
+      musicPlayerState.playlist.splice(trackIndex, 1);
+      updatePlaylistModal();
+    } catch (err) {
+      console.error(err);
+      showNotification(
+        playlistId
+          ? config.languageLabels.removeError     || "Kaldırma hatası"
+          : config.languageLabels.removeLocalError|| "Yerel silme hatası",
+        "error"
+      );
+    } finally {
+      overlay.remove();
+    }
+  });
+
+  dialog.querySelector(".confirm-no").addEventListener("click", e => {
+    e.stopPropagation();
+    overlay.remove();
+  });
+}
+
+
+export function showRemoveSelectedConfirmModal() {
+  const selected = Array.from(musicPlayerState.selectedTracks);
+  const count    = selected.length;
+  if (!count) {
+    showNotification(config.languageLabels.noSelection || "Hiç parça seçilmedi", "warning");
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-overlay";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  dialog.innerHTML = `
+    <p>${count} ${config.languageLabels.confirmRemoveSelected || "parça kaldırılsın mı?"}</p>
+    <button class="confirm-yes">${config.languageLabels.yes || "Evet"}</button>
+    <button class="confirm-no">${config.languageLabels.no || "Hayır"}</button>
+  `;
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", e => {
+    e.stopPropagation();
+    if (e.target === overlay) overlay.remove();
+  });
+
+  dialog.querySelector(".confirm-yes").addEventListener("click", async e => {
+    e.stopPropagation();
+    try {
+      const playlistId = musicPlayerState.currentPlaylistId;
+      const trackIds   = selected.map(i => musicPlayerState.playlist[i].Id);
+
+      if (playlistId) {
+        await removeItemsFromPlaylist(playlistId, trackIds);
+        showNotification(
+          config.languageLabels.tracksRemoved    || `${count} parça kaldırıldı`,
+          "success"
+        );
+      } else {
+        showNotification(
+          config.languageLabels.tracksRemovedLocal|| `${count} parça listeden kaldırıldı`,
+          "info"
+        );
+      }
+
+      selected.sort((a,b) => b - a)
+              .forEach(i => musicPlayerState.playlist.splice(i,1));
+      musicPlayerState.selectedTracks.clear();
+      updatePlaylistModal();
+    } catch (err) {
+      console.error(err);
+      showNotification(
+        playlistId
+          ? config.languageLabels.removeError     || "Kaldırma hatası"
+          : config.languageLabels.removeLocalError|| "Yerel silme hatası",
+        "error"
+      );
+    } finally {
+      overlay.remove();
+    }
+  });
+
+  dialog.querySelector(".confirm-no").addEventListener("click", e => {
+    e.stopPropagation();
+    overlay.remove();
   });
 }

@@ -320,4 +320,3 @@ document.addEventListener('keydown', (e) => {
 });
 
 createKeyboardHelpModal();
-

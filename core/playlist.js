@@ -49,57 +49,192 @@ export async function refreshPlaylist() {
   }
 }
 
-export async function saveCurrentPlaylistToJellyfin(playlistName, makePublic = false) {
+async function addItemsToPlaylist(playlistId, itemIds, userId) {
+  const token = getAuthToken();
+  const idsQueryParam = itemIds.join(',');
+
   try {
-    const token = getAuthToken();
-    if (!token) throw new Error(config.languageLabels.noApiToken);
-    const createResponse = await fetch('/Playlists', {
-      method: 'POST',
-      headers: {
-        "X-Emby-Token": token,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        Name: playlistName || `Muzik Playlist ${new Date().toLocaleDateString()}`,
-        Ids: musicPlayerState.playlist.map(item => item.Id),
-        UserId: musicPlayerState.userSettings.userId,
-        IsPublic: makePublic
-      })
-    });
-
-    if (!createResponse.ok) throw new Error(config.languageLabels.playlistCreateFailed);
-
-    const result = await createResponse.json();
-
-    if (makePublic) {
-      try {
-        const playlistId = result.Id;
-        const updateResponse = await fetch(`/Playlists/${playlistId}`, {
-          method: 'POST',
-          headers: {
-            "X-Emby-Token": token,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            IsPublic: true
-          })
-        });
-
-        if (!updateResponse.ok) {
-          console.warn(config.languageLabels.playlistMakePublicFailed);
-          showNotification(config.languageLabels.playlistCreatedButNotPublic, 'warning');
+    const response = await fetch(
+      `/Playlists/${playlistId}/Items?ids=${idsQueryParam}&userId=${userId}`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Emby-Token': token,
+          'Content-Type': 'application/json'
         }
-      } catch (updateError) {
-        console.warn("Playlist public ayarı güncellenemedi:", updateError);
       }
+    );
+
+    if (response.status === 204) {
+      return { success: true, message: 'Parçalar başarıyla eklendi' };
     }
 
-    showNotification(config.languageLabels.playlistCreatedSuccessfully);
-    return result;
-  } catch (err) {
-    console.error(config.languageLabels.playlistSaveError, err);
-    showNotification(err.message, 'error');
-    throw err;
+    if (response.status === 401) {
+      throw new Error(config.languageLabels.unauthorizedAccess);
+    } else if (response.status === 403) {
+      throw new Error(config.languageLabels.accessForbidden);
+    } else if (response.status === 404) {
+      throw new Error(config.languageLabels.playlistNotFound);
+    } else if (!response.ok) {
+      throw new Error(
+        config.languageLabels.serverError.replace('{0}', response.status)
+      );
+    }
+
+  } catch (error) {
+    console.error('Çalma listesine parça eklenirken hata:', error);
+    throw error;
   }
 }
 
+
+ export async function removeItemsFromPlaylist(playlistId, itemIds) {
+   const token = getAuthToken();
+   const idsParam = itemIds.join(',');
+   const url = `/Playlists/${playlistId}/Items?entryIds=${idsParam}`;
+
+   const res = await fetch(url, {
+     method: 'DELETE',
+     headers: {
+       'X-Emby-Token': token,
+       'Content-Type': 'application/json'
+     }
+   });
+
+   if (!res.ok) {
+     const details = await res.text().catch(() => '');
+     console.error('removeItemsFromPlaylist hata detayı:', details);
+     throw new Error(`Silme işlemi başarısız: HTTP ${res.status}${details ? ` – ${details}` : ''}`);
+   }
+
+   return { success: true };
+ }
+
+
+async function getPlaylistItems(playlistId) {
+  const token = getAuthToken();
+  const response = await fetch(`/Playlists/${playlistId}/Items`, {
+    headers: {
+      'X-Emby-Token': token,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Çalma listesi öğeleri alınamadı');
+  }
+
+  const data = await response.json();
+  return data.Items || [];
+}
+
+export async function saveCurrentPlaylistToJellyfin(
+  playlistName,
+  makePublic = false,
+  tracksToSave = [],
+  isNew = true,
+  existingPlaylistId = null
+) {
+  const token = getAuthToken();
+  if (!token) {
+    showNotification(config.languageLabels.noApiToken, "error");
+    throw new Error("API anahtarı bulunamadı");
+  }
+
+  if (!Array.isArray(tracksToSave) || tracksToSave.length === 0) {
+    showNotification(
+      `${config.languageLabels.noTracksToSave}`,
+      2000,
+      'addlist'
+    );
+    return;
+  }
+
+  const itemIds = tracksToSave.map(track => track.Id);
+  const userId = window.ApiClient.getCurrentUserId();
+
+  try {
+    if (!isNew && existingPlaylistId) {
+      const existingItems = await getPlaylistItems(existingPlaylistId);
+      const existingItemIds = new Set(existingItems.map(item => item.Id));
+
+      const alreadyInPlaylist = tracksToSave.filter(track => existingItemIds.has(track.Id));
+      const tracksToActuallyAdd = tracksToSave.filter(track => !existingItemIds.has(track.Id));
+
+      if (alreadyInPlaylist.length > 0) {
+    const names = alreadyInPlaylist.map(track => track.Name);
+    let displayNames = "";
+
+    if (names.length > 5) {
+      const firstThree = names.slice(0, 3).join(", ");
+      const remainingCount = names.length - 3;
+      displayNames = `${firstThree} ${config.languageLabels.ayrica} ${remainingCount} ${config.languageLabels.moreTracks}`;
+    } else {
+      displayNames = names.join(", ");
+    }
+
+  showNotification(
+    `${config.languageLabels.alreadyInPlaylist} (${alreadyInPlaylist.length}): ${displayNames}`,
+    4000,
+    'addlist'
+  );
+}
+
+      if (tracksToActuallyAdd.length > 0) {
+        const idsToAdd = tracksToActuallyAdd.map(track => track.Id);
+        await addItemsToPlaylist(existingPlaylistId, idsToAdd, userId);
+
+        showNotification(
+          `${config.languageLabels.addingsuccessful}`,
+          2000,
+          'addlist'
+        );
+      } else {
+        showNotification(
+          `${config.languageLabels.noTracksToSave}`,
+          2000,
+          'addlist'
+        );
+      }
+
+      return { success: true };
+
+    } else {
+      const createResponse = await fetch("/Playlists", {
+        method: "POST",
+        headers: {
+          "X-Emby-Token": token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          Name: playlistName || `Yeni Çalma Listesi ${new Date().toLocaleString()}`,
+          Ids: itemIds,
+          UserId: userId,
+          IsPublic: makePublic
+        })
+      });
+
+      if (!createResponse.ok) {
+        const error = await createResponse.json().catch(() => ({}));
+        throw new Error(error.Message || config.languageLabels.playlistCreateFailed);
+      }
+
+      const result = await createResponse.json();
+      showNotification(
+        `${config.languageLabels.playlistCreatedSuccessfully}`,
+        2000,
+        'addlist'
+      );
+
+      return result;
+    }
+  } catch (err) {
+    console.error("Çalma listesi işlemi başarısız:", err);
+    showNotification(
+      `${err.message} ${config.languageLabels.playlistSaveError}`,
+      2000,
+      'addlist'
+    );
+    throw err;
+  }
+}
