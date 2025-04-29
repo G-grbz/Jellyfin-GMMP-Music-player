@@ -56,12 +56,12 @@ export function createModernPlayerUI() {
 
   const buttonsTop = [
     { className: "playlist-btn", iconClass: "fas fa-list", title: config.languageLabels.playlist, onClick: togglePlaylistModal },
+    { className: "jplaylist-btn", iconClass: "fas fa-list-music", title: config.languageLabels.jellyfinPlaylists || "Jellyfin Oynatma Listesi", onClick: showJellyfinPlaylistsModal },
     { className: "settingsLink", iconClass: "fas fa-cog", title: config.languageLabels.ayarlar || "Ayarlar", onClick: initSettings.onclick = (e) => {
     e.preventDefault();
     const settings = initSettings();
     settings.open();
   } },
-    { className: "jplaylist-btn", iconClass: "fas fa-list-music", title: config.languageLabels.jellyfinPlaylists || "Jellyfin Oynatma Listesi", onClick: showJellyfinPlaylistsModal },
     { className: "kapat-btn", iconClass: "fas fa-times", title: config.languageLabels.close || "Close", onClick: togglePlayerVisibility },
   ];
 
