@@ -1,7 +1,7 @@
 import { musicPlayerState } from "./state.js";
 import { togglePlayPause, playPrevious, playNext } from "../player/playback.js";
 
-const DEFAULT_ARTWORK_URL = '/web/GMMP/src/images/defaultArt.png';
+const DEFAULT_ARTWORK_URL = '/web/slider/src/images/defaultArt.png';
 
 export function initMediaSession() {
   if (!('mediaSession' in navigator)) {

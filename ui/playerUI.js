@@ -1,7 +1,7 @@
 import { createPlaylistModal } from "./playlistModal.js";
 import { musicPlayerState, loadUserSettings, saveUserSettings } from "../core/state.js";
 import { getConfig } from "../core/configLoader.js";
-import { togglePlayPause, playPrevious, playNext } from "../player/playback.js";
+import { togglePlayPause, playPrevious, playNext, playTrack } from "../player/playback.js";
 import { updateProgress, setupProgressControls } from "../player/progress.js";
 import { toggleLyrics } from "../lyrics/lyrics.js";
 import { toggleMute, changeVolume } from "./controls.js";
@@ -12,53 +12,67 @@ import { refreshPlaylist } from "../core/playlist.js";
 import { initSettings } from '../core/settings.js';
 import { showJellyfinPlaylistsModal } from '../core/jellyfinPlaylists.js';
 import { togglePlayerVisibility } from '../utils/mainIndex.js';
+import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
 
 const config = getConfig();
+const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+
+function createButton({ className, iconClass, title, onClick, id = "" }) {
+  const btn = document.createElement("button");
+  btn.className = `player-btn ${className || ""}`.trim();
+  if (id) btn.id = id;
+  btn.innerHTML = `<i class="${iconClass}"></i>`;
+  btn.title = title;
+  btn.onclick = onClick;
+  return btn;
+}
 
 export function createModernPlayerUI() {
-  const player = document.createElement("div");
-  player.id = "modern-music-player";
-  player.setAttribute('role', 'region');
-  player.setAttribute('aria-label', 'Music Player');
-  player.setAttribute('aria-hidden', 'true');
+  const player = Object.assign(document.createElement("div"), {
+    id: "modern-music-player",
+    role: "region",
+    ariaLabel: "Music Player",
+    ariaHidden: "true"
+  });
+
+  const nextTracksContainer = document.createElement("div");
+  nextTracksContainer.className = "next-tracks-container";
+
+  const nextTracksName = document.createElement("div");
+  nextTracksName.className = "next-tracks-name hidden";
+  nextTracksName.innerText = config.languageLabels.sirada || "Sıradaki Şarkı";
+
+  const nextTracksList = document.createElement("div");
+  nextTracksList.className = "next-tracks-list";
+
+  nextTracksContainer.append(nextTracksName, nextTracksList);
+
+  setTimeout(() => {
+    nextTracksName.classList.remove('hidden');
+  }, 4000);
 
   const topControlsContainer = document.createElement("div");
   topControlsContainer.className = "top-controls-container";
 
-  const jellyfinPlaylistBtn = document.createElement("div");
-  jellyfinPlaylistBtn.className = "jplaylist-btn";
-  jellyfinPlaylistBtn.innerHTML = '<i class="fas fa-list-music"></i>';
-  jellyfinPlaylistBtn.title = config.languageLabels.jellyfinPlaylists || "Jellyfin Oynatma Listesi";
-  jellyfinPlaylistBtn.onclick = showJellyfinPlaylistsModal;
-
-  const playlistBtn = document.createElement("div");
-  playlistBtn.className = "playlist-btn";
-  playlistBtn.innerHTML = '<i class="fas fa-list"></i>';
-  playlistBtn.title = config.languageLabels.playlist;
-  playlistBtn.onclick = togglePlaylistModal;
-
-  const settingsLink = document.createElement("div");
-  settingsLink.className = "settingsLink";
-  settingsLink.innerHTML = '<i class="fas fa-cog"></i>';
-  settingsLink.title = config.languageLabels.ayarlar || "Ayarlar";
-  settingsLink.href = "#";
-  settingsLink.onclick = (e) => {
+  const buttonsTop = [
+    { className: "playlist-btn", iconClass: "fas fa-list", title: config.languageLabels.playlist, onClick: togglePlaylistModal },
+    { className: "settingsLink", iconClass: "fas fa-cog", title: config.languageLabels.ayarlar || "Ayarlar", onClick: initSettings.onclick = (e) => {
     e.preventDefault();
     const settings = initSettings();
     settings.open();
-  };
+  } },
+    { className: "jplaylist-btn", iconClass: "fas fa-list-music", title: config.languageLabels.jellyfinPlaylists || "Jellyfin Oynatma Listesi", onClick: showJellyfinPlaylistsModal },
+    { className: "kapat-btn", iconClass: "fas fa-times", title: config.languageLabels.close || "Close", onClick: togglePlayerVisibility },
+  ];
 
-  const closeBtn = document.createElement("div");
-  closeBtn.className = "kapat-btn";
-  closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-  closeBtn.title = config.languageLabels.close || "Close";
-  closeBtn.onclick = togglePlayerVisibility;
-
-  topControlsContainer.appendChild(playlistBtn);
-  topControlsContainer.appendChild(jellyfinPlaylistBtn);
-  topControlsContainer.appendChild(settingsLink);
-  topControlsContainer.appendChild(closeBtn);
-
+  buttonsTop.forEach(btnInfo => {
+    const div = document.createElement("div");
+    div.className = btnInfo.className;
+    div.innerHTML = `<i class="${btnInfo.iconClass}"></i>`;
+    div.title = btnInfo.title;
+    div.onclick = btnInfo.onClick;
+    topControlsContainer.appendChild(div);
+  });
 
   const albumArt = document.createElement("div");
   albumArt.id = "player-album-art";
@@ -66,144 +80,79 @@ export function createModernPlayerUI() {
   const trackInfo = document.createElement("div");
   trackInfo.className = "player-track-info";
 
-  const title = document.createElement("div");
-  title.id = "player-track-title";
-  title.classList.add("marquee-container");
+  const titleContainer = document.createElement("div");
+  titleContainer.id = "player-track-title";
+  titleContainer.className = "marquee-container";
 
   const titleText = document.createElement("div");
   titleText.className = "marquee-text";
   titleText.textContent = config.languageLabels.noSongSelected;
-  title.appendChild(titleText);
+  titleContainer.appendChild(titleText);
 
   const artist = document.createElement("div");
   artist.id = "player-track-artist";
   artist.textContent = config.languageLabels.artistUnknown;
 
-  trackInfo.appendChild(title);
-  trackInfo.appendChild(artist);
+  trackInfo.append(titleContainer, artist);
 
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
-  const repeatBtn = document.createElement("button");
-  repeatBtn.className = "player-btn";
-  repeatBtn.innerHTML = '<i class="fas fa-repeat"></i>';
-  repeatBtn.title = config.languageLabels.repeatModOff;
-  repeatBtn.onclick = toggleRepeatMode;
+  const repeatBtn = createButton({ iconClass: "fas fa-repeat", title: config.languageLabels.repeatModOff, onClick: toggleRepeatMode });
+  const shuffleBtn = createButton({ iconClass: "fas fa-random", title: `${config.languageLabels.shuffle}: ${config.languageLabels.shuffleOff}`, onClick: toggleShuffle });
+  const refreshBtn = createButton({ iconClass: "fas fa-sync-alt", title: config.languageLabels.refreshPlaylist, onClick: refreshPlaylist });
+  const prevBtn = createButton({ iconClass: "fas fa-step-backward", title: config.languageLabels.previousTrack, onClick: playPrevious });
+  const playPauseBtn = createButton({ className: "main", iconClass: "fas fa-play", title: config.languageLabels.playPause, onClick: togglePlayPause, id: "play-pause-btn" });
+  const nextBtn = createButton({ iconClass: "fas fa-step-forward", title: config.languageLabels.nextTrack, onClick: playNext });
+  const lyricsBtn = createButton({ iconClass: "fas fa-align-left", title: config.languageLabels.lyrics, onClick: toggleLyrics });
+  const volumeBtn = createButton({ iconClass: "fas fa-volume-up", title: config.languageLabels.volume, onClick: toggleMute });
 
-  const shuffleBtn = document.createElement("button");
-  shuffleBtn.className = "player-btn";
-  shuffleBtn.innerHTML = '<i class="fas fa-random"></i>';
-  shuffleBtn.title = `${config.languageLabels.shuffle}: ${config.languageLabels.shuffleOff}`;
-  shuffleBtn.onclick = toggleShuffle;
+  const volumeSlider = Object.assign(document.createElement("input"), {
+    type: "range",
+    className: "player-volume-slider",
+    min: "0",
+    max: "1",
+    step: "0.01",
+    value: "1",
+    title: config.languageLabels.volumeLevel,
+  });
 
-  const refreshBtn = document.createElement("button");
-  refreshBtn.className = "player-btn";
-  refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-  refreshBtn.title = config.languageLabels.refreshPlaylist;
-  refreshBtn.onclick = refreshPlaylist;
-
-  const prevBtn = document.createElement("button");
-  prevBtn.className = "player-btn";
-  prevBtn.innerHTML = '<i class="fas fa-step-backward"></i>';
-  prevBtn.title = config.languageLabels.previousTrack;
-  prevBtn.onclick = playPrevious;
-
-  const playPauseBtn = document.createElement("button");
-  playPauseBtn.className = "player-btn main";
-  playPauseBtn.id = "play-pause-btn";
-  playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-  playPauseBtn.title = config.languageLabels.playPause;
-  playPauseBtn.onclick = togglePlayPause;
-
-  const nextBtn = document.createElement("button");
-  nextBtn.className = "player-btn";
-  nextBtn.innerHTML = '<i class="fas fa-step-forward"></i>';
-  nextBtn.title = config.languageLabels.nextTrack;
-  nextBtn.onclick = playNext;
-
-  const lyricsBtn = document.createElement("button");
-  lyricsBtn.className = "player-btn";
-  lyricsBtn.innerHTML = '<i class="fas fa-align-left"></i>';
-  lyricsBtn.title = config.languageLabels.lyrics;
-  lyricsBtn.onclick = toggleLyrics;
-
-  const volumeBtn = document.createElement("button");
-  volumeBtn.className = "player-btn";
-  volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
-  volumeBtn.title = config.languageLabels.volume;
-  volumeBtn.addEventListener("click", toggleMute);
-
-  const volumeSlider = document.createElement("input");
-  volumeSlider.type = "range";
-  volumeSlider.className = "player-volume-slider";
-  volumeSlider.min = "0";
-  volumeSlider.max = "1";
-  volumeSlider.step = "0.01";
-  volumeSlider.value = "1";
-  volumeSlider.title = config.languageLabels.volumeLevel;
-  volumeSlider.addEventListener('input', (e) => {
-  const volume = parseFloat(e.target.value);
-  musicPlayerState.audio.volume = volume;
-  musicPlayerState.userSettings.volume = volume;
-  musicPlayerState.audio.muted = false;
-  updateVolumeIcon(volume);
-  saveUserSettings();
-});
+  volumeSlider.addEventListener('input', e => {
+    const volume = parseFloat(e.target.value);
+    const audio = musicPlayerState.audio;
+    audio.volume = volume;
+    audio.muted = false;
+    musicPlayerState.userSettings.volume = volume;
+    updateVolumeIcon(volume);
+    saveUserSettings();
+  });
 
   function updateVolumeIcon(volume) {
-  let icon;
-  if (volume === 0) {
-    icon = '<i class="fas fa-volume-mute"></i>';
-  } else if (volume < 0.5) {
-    icon = '<i class="fas fa-volume-down"></i>';
-  } else {
-    icon = '<i class="fas fa-volume-up"></i>';
+    let icon;
+    if (volume === 0) icon = "fas fa-volume-mute";
+    else if (volume < 0.5) icon = "fas fa-volume-down";
+    else icon = "fas fa-volume-up";
+    volumeBtn.innerHTML = `<i class="${icon}"></i>`;
   }
-  musicPlayerState.volumeBtn.innerHTML = icon;
-}
 
   const controls = document.createElement("div");
   controls.className = "player-controls";
 
-  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  const controlElements = [repeatBtn, shuffleBtn, refreshBtn, prevBtn, playPauseBtn, nextBtn, lyricsBtn, volumeBtn];
 
   if (isMobile) {
-    controls.style.gridColumn = "1 / -1";
-    controls.style.overflowX = "auto";
-    controls.style.padding = "5px 0";
-    controls.style.scrollSnapType = "x mandatory";
-    controls.style.webkitOverflowScrolling = "touch";
-
     const scrollableControls = document.createElement("div");
     scrollableControls.style.display = "flex";
     scrollableControls.style.gap = "5px";
     scrollableControls.style.padding = "0 10px";
-
-    [
-      repeatBtn,
-      shuffleBtn,
-      refreshBtn,
-      prevBtn,
-      playPauseBtn,
-      nextBtn,
-      lyricsBtn,
-      volumeBtn,
-    ].forEach(btn => {
+    controlElements.forEach(btn => {
       btn.style.flexShrink = "0";
       btn.style.scrollSnapAlign = "center";
       scrollableControls.appendChild(btn);
     });
-
-    volumeSlider.style.display = "none";
     controls.appendChild(scrollableControls);
+    volumeSlider.style.display = "none";
   } else {
-    controls.appendChild(repeatBtn);
-    controls.appendChild(shuffleBtn);
-    controls.appendChild(refreshBtn);
-    controls.appendChild(prevBtn);
-    controls.appendChild(playPauseBtn);
-    controls.appendChild(nextBtn);
-    controls.appendChild(lyricsBtn);
-    controls.appendChild(volumeBtn);
+    controlElements.forEach(btn => controls.appendChild(btn));
     controls.appendChild(volumeSlider);
   }
 
@@ -216,13 +165,11 @@ export function createModernPlayerUI() {
   const progress = document.createElement("div");
   progress.className = "player-progress";
 
+  const progressHandle = document.createElement("div");
+  progressHandle.className = "player-progress-handle";
+
   const timeContainer = document.createElement("div");
   timeContainer.className = "player-time-container";
-
-  musicPlayerState.timeContainer = timeContainer;
-
-  const progressHandle = document.createElement('div');
-  progressHandle.className = 'player-progress-handle';
 
   const currentTimeEl = document.createElement("span");
   currentTimeEl.className = "player-current-time";
@@ -232,71 +179,121 @@ export function createModernPlayerUI() {
   durationEl.className = "player-duration";
   durationEl.textContent = "0:00";
 
-  progressBar.appendChild(progress);
-  progressBar.appendChild(progressHandle);
-  timeContainer.appendChild(currentTimeEl);
-  timeContainer.appendChild(durationEl);
-  progressContainer.appendChild(progressBar);
-  progressContainer.appendChild(timeContainer);
+  progressBar.append(progress, progressHandle);
+  timeContainer.append(currentTimeEl, durationEl);
+  progressContainer.append(progressBar, timeContainer);
 
   timeContainer.addEventListener("click", () => {
     musicPlayerState.showRemaining = !musicPlayerState.showRemaining;
-    updateProgress();
+    setupProgressControls();
   });
 
   const lyricsContainer = document.createElement("div");
   lyricsContainer.id = "player-lyrics-container";
   lyricsContainer.className = "lyrics-hidden";
 
-  player.appendChild(lyricsContainer);
-  player.appendChild(topControlsContainer);
-  player.appendChild(albumArt);
-  player.appendChild(trackInfo);
-  player.appendChild(progressContainer);
-  player.appendChild(controls);
+  player.append(lyricsContainer, topControlsContainer, albumArt, nextTracksContainer, trackInfo, progressContainer, controls);
   document.body.appendChild(player);
   createPlaylistModal();
 
-  musicPlayerState.modernPlayer = player;
-  musicPlayerState.albumArtEl = albumArt;
-  musicPlayerState.modernTitleEl = title;
-  musicPlayerState.modernTitleEl = titleText;
-  musicPlayerState.modernArtistEl = artist;
-  musicPlayerState.progressBar = progressBar;
-  musicPlayerState.progress = progress;
-  musicPlayerState.progressHandle = progressHandle;
-  musicPlayerState.playPauseBtn = playPauseBtn;
-  musicPlayerState.progressContainer = progressContainer;
-  musicPlayerState.currentTimeEl = currentTimeEl;
-  musicPlayerState.durationEl = durationEl;
-  musicPlayerState.lyricsContainer = lyricsContainer;
-  musicPlayerState.lyricsBtn = lyricsBtn;
-  musicPlayerState.volumeBtn = volumeBtn;
-  musicPlayerState.volumeSlider = volumeSlider;
-  musicPlayerState.audio.volume = musicPlayerState.userSettings.volume || 0.7;
-
-  setupProgressControls();
-  loadUserSettings();
-
-    function updateProgress(currentTime, duration) {
-  const percent = (currentTime / duration) * 100;
-  progress.style.width = `${percent}%`;
-  progressHandle.style.left = `${percent}%`;
-}
-
-  return {
-    player,
-    albumArt,
-    title,
-    artist,
+  Object.assign(musicPlayerState, {
+    modernPlayer: player,
+    albumArtEl: albumArt,
+    modernTitleEl: titleText,
+    modernArtistEl: artist,
     progressBar,
     progress,
+    progressHandle,
     playPauseBtn,
     progressContainer,
     currentTimeEl,
     durationEl,
-    volumeSlider,
     lyricsContainer,
-    lyricsBtn
-  };
+    lyricsBtn,
+    volumeBtn,
+    volumeSlider,
+    nextTracksContainer,
+    nextTracksList,
+  });
+
+  musicPlayerState.audio.volume = musicPlayerState.userSettings.volume || 0.7;
+  setupProgressControls();
+  loadUserSettings();
+
+  return { player, albumArt, title: titleContainer, artist, progressBar, progress, playPauseBtn, progressContainer, currentTimeEl, durationEl, volumeSlider, lyricsContainer, lyricsBtn };
+}
+
+export async function updateNextTracks() {
+  const { nextTracksList, playlist, currentIndex, nextTracksContainer } = musicPlayerState;
+  if (!nextTracksList || !playlist) return;
+
+  nextTracksList.querySelectorAll('.next-track-item').forEach(item => {
+    item.classList.remove('visible');
+    setTimeout(() => item.remove(), 300);
+  });
+
+  const nextTracksName = nextTracksContainer.querySelector('.next-tracks-name');
+  nextTracksName.classList.add('hidden');
+
+  const maxNextTracks = 3;
+  let tracksLoaded = 0;
+
+  for (let i = 1; i <= maxNextTracks; i++) {
+    const nextIndex = (currentIndex + i) % playlist.length;
+    const track = playlist[nextIndex];
+    if (!track) continue;
+
+    const trackElement = document.createElement("div");
+    trackElement.className = "next-track-item hidden";
+    trackElement.title = track.Name || config.languageLabels.unknownTrack;
+
+    const coverElement = document.createElement("div");
+    coverElement.className = "next-track-cover";
+    coverElement.style.backgroundImage = DEFAULT_ARTWORK;
+
+    try {
+      const tags = await readID3Tags(track.Id);
+      if (tags?.picture) {
+        const base64Image = arrayBufferToBase64(tags.picture.data);
+        coverElement.style.backgroundImage = `url(data:${tags.picture.format};base64,${base64Image})`;
+      } else {
+        const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
+        if (imageTag) {
+          const imageId = track.AlbumId || track.Id;
+          coverElement.style.backgroundImage = `url('${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}')`;
+        }
+      }
+    } catch (err) {
+      console.error("Kapak resmi yüklenirken hata:", err);
+    }
+
+    coverElement.onclick = e => {
+      e.stopPropagation();
+      playTrack(nextIndex);
+    };
+
+    const titleElement = document.createElement("div");
+    titleElement.className = "next-track-title";
+    titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
+    titleElement.onclick = e => {
+      e.stopPropagation();
+      playTrack(nextIndex);
+    };
+
+    trackElement.append(coverElement, titleElement);
+    nextTracksList.appendChild(trackElement);
+
+    setTimeout(() => {
+      trackElement.classList.remove('hidden');
+      trackElement.classList.add('visible');
+      tracksLoaded++;
+
+      if (tracksLoaded === Math.min(maxNextTracks, playlist.length - 1)) {
+        setTimeout(() => {
+          nextTracksName.classList.remove('hidden');
+          nextTracksName.classList.add('visible');
+        }, 400);
+      }
+    }, 400 * i);
+  }
 }

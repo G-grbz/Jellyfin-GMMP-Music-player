@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  sirada: "Die Nächsten",
   removeSelected: "Ausgewählte entfernen",
   confirmRemoveSelected: "Ausgewählte Lieder entfernen?",
   tracksRemoved: "{0} Lied entfernt",

@@ -28,7 +28,7 @@ export function createPlaylistModal() {
 
   const selectAllBtn = document.createElement("div");
   selectAllBtn.className = "playlist-select-all";
-  selectAllBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+  selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i>';
   selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç/Bırak";
   selectAllBtn.onclick = (e) => {
     e.stopPropagation();
@@ -88,6 +88,24 @@ removeSelectedBtn.onclick = (e) => {
   musicPlayerState.playlistSearchInput = searchInput;
   musicPlayerState.selectedTracks = new Set();
 }
+
+function updateSelectAllBtnState() {
+  const itemsCount = musicPlayerState.playlistItemsContainer
+    .querySelectorAll(".playlist-item").length;
+  const selectedCount = musicPlayerState.selectedTracks.size;
+  const selectAllBtn = document.querySelector(".playlist-select-all");
+  if (!selectAllBtn) return;
+
+  const allSelected = selectedCount === itemsCount && itemsCount > 0;
+  if (allSelected) {
+    selectAllBtn.innerHTML = '<i class="fa-solid fa-minus"></i>';
+    selectAllBtn.title = config.languageLabels.deselectAll || "Seçimi Kaldır";
+  } else {
+    selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+    selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç";
+  }
+}
+
 
 async function showSaveModal() {
   const selectedCount = musicPlayerState.selectedTracks.size;
@@ -342,6 +360,7 @@ function toggleSelectAll() {
     selectAllBtn.innerHTML = '<i class="fa-solid fa-minus"></i>';
     selectAllBtn.title = config.languageLabels.deselectAll || "Seçimi Kaldır";
   }
+  updateSelectAllBtnState();
 }
 
 let outsideClickListener = null;
@@ -352,17 +371,7 @@ export function togglePlaylistModal(e) {
   if (modal.style.display === "flex") {
     modal.style.display = "none";
     removeOutsideClickListener();
-    musicPlayerState.selectedTracks.clear();
-    const checkboxes = document.querySelectorAll(".playlist-item-checkbox");
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = false;
-      checkbox.parentElement.classList.remove("selected");
-    });
-    const selectAllBtn = document.querySelector(".playlist-select-all");
-    if (selectAllBtn) {
-      selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i>';
-      selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç";
-    }
+    resetSelectionState();
   } else {
     updatePlaylistModal();
     modal.style.display = "flex";
@@ -392,22 +401,36 @@ export function togglePlaylistModal(e) {
   }
 }
 
+function resetSelectionState() {
+  musicPlayerState.selectedTracks.clear();
+  const checkboxes = document.querySelectorAll(".playlist-item-checkbox");
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = false;
+    checkbox.parentElement.classList.remove("selected");
+  });
+  const selectAllBtn = document.querySelector(".playlist-select-all");
+  if (selectAllBtn) {
+    selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+    selectAllBtn.title = config.languageLabels.selectAll || "Tümünü Seç";
+  }
+}
+
 function addOutsideClickListener() {
   if (outsideClickListener) return;
 
   outsideClickListener = (event) => {
     const playlistModal = musicPlayerState.playlistModal;
-    const saveModal     = document.querySelector('.playlist-save-modal');
+    const saveModal = document.querySelector('.playlist-save-modal');
     if (
       (playlistModal && playlistModal.contains(event.target)) ||
-      (saveModal     && saveModal.contains(event.target))
+      (saveModal && saveModal.contains(event.target))
     ) {
       return;
     }
 
     playlistModal.style.display = 'none';
     removeOutsideClickListener();
-    musicPlayerState.selectedTracks.clear();
+    resetSelectionState();
   };
 
   setTimeout(() => {
@@ -454,6 +477,7 @@ export function updatePlaylistModal() {
         musicPlayerState.selectedTracks.delete(index);
         item.classList.remove("selected");
       }
+      updateSelectAllBtnState();
     };
 
     const itemContent = document.createElement("div");
@@ -486,6 +510,7 @@ export function updatePlaylistModal() {
     item.appendChild(checkbox);
     item.appendChild(itemContent);
     itemsContainer.appendChild(item);
+    updateSelectAllBtnState();
   });
 
   const activeItem = itemsContainer.querySelector(".playlist-item.active");

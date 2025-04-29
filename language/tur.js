@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  sirada: "Sıradakiler",
   unauthorizedAccess: "Yetkisiz erişim - Lütfen kimlik doğrulamanızı kontrol edin",
   accessForbidden: "Erişim engellendi - Gerekli izinlere sahip olmayabilirsiniz",
   playlistNotFound: "Çalma listesi bulunamadı",

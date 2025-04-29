@@ -1,17 +1,17 @@
 import { musicPlayerState } from "../core/state.js";
 import { getConfig } from "../core/configLoader.js";
 import { getAuthToken } from "../core/auth.js";
-import { updateMediaMetadata, initMediaSession } from "../core/mediaSession.js";
+import { updateMediaMetadata, initMediaSession, updatePositionState } from "../core/mediaSession.js";
 import { getFromOfflineCache, cacheForOffline } from "../core/offlineCache.js";
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
 import { fetchLyrics, updateSyncedLyrics } from "../lyrics/lyrics.js";
 import { updatePlaylistModal } from "../ui/playlistModal.js";
 import { showNotification } from "../ui/notification.js";
 import { updateProgress, updateDuration, setupAudioListeners } from "./progress.js";
+import { updateNextTracks } from "../ui/playerUI.js";
 
 const config = getConfig();
-
-const SEEK_RETRY_DELAY = 2000;
+const SEEK_RETRY_DELAY = 0;
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
 
 let currentCanPlayHandler = null;
@@ -51,10 +51,14 @@ function cleanupAudioListeners() {
   if (!audio) return;
 
   audio.pause();
+  audio.removeEventListener('canplay', handleCanPlay);
+  audio.removeEventListener('error', handlePlayError);
+  audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
   audio.src = '';
   audio.removeAttribute('src');
   audio.load();
   audio.onended = null;
+
 }
 
 function handleSongEnd() {
@@ -146,7 +150,7 @@ export async function updateModernTrackInfo(track) {
     return;
   }
 
-  const title = track.Name || track.title || config.languageLabels.unknownTrack;
+  const title = track.Name || config.languageLabels.unknownTrack;
   const artists = track.Artists ||
                    (track.ArtistItems?.map(a => a.Name) || []) ||
                    (track.artist ? [track.artist] : []) ||
@@ -330,8 +334,8 @@ export function playTrack(index) {
 
   const track = musicPlayerState.playlist[index];
   musicPlayerState.currentIndex = index;
-  musicPlayerState.currentTrackName = track.Name || track.title || "Bilinmeyen Şarkı";
-  musicPlayerState.currentAlbumName = track.Album || "Bilinmeyen Albüm";
+  musicPlayerState.currentTrackName = track.Name || config.languageLabels.unknownTrack;
+  musicPlayerState.currentAlbumName = track.Album || config.languageLabels.unknownTrack;
 
   showNotification(
     `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
@@ -346,6 +350,7 @@ export function playTrack(index) {
   audio.onended = handleSongEnd;
   audio.addEventListener('canplay', handleCanPlay, { once: true });
   audio.addEventListener('error', handlePlayError, { once: true });
+  audio.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
   setupAudioListeners();
 
   if (/Linux/i.test(navigator.userAgent)) {
@@ -364,6 +369,7 @@ export function playTrack(index) {
   if (musicPlayerState.lyricsActive) {
     fetchLyrics();
   }
+  updateNextTracks();
 }
 
 function getAudioUrl(track) {
