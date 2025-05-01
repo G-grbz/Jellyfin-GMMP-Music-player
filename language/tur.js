@@ -1,5 +1,13 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  unknownTrack: "Bilinmeyen Şarkı",
+  alreadyInTrack: "Bu isimde bir şarkı zaten listede",
+  noTrack: "Sanatçıya ait şarkı bulunamadı",
+  errorAlbum: "Şarkılar yüklenirken hata oluştu",
+  hiddenBio: "Biyografiyi Gizle",
+  visibleBio: "Biyografiyi Göster",
+  track: "Şarkı",
+  placeholder: "Listelenen şarkılarda ara...",
   sirada: "Sıradakiler",
   unauthorizedAccess: "Yetkisiz erişim - Lütfen kimlik doğrulamanızı kontrol edin",
   accessForbidden: "Erişim engellendi - Gerekli izinlere sahip olmayabilirsiniz",

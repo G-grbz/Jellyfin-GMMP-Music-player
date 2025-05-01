@@ -13,6 +13,7 @@ import { initSettings } from '../core/settings.js';
 import { showJellyfinPlaylistsModal } from '../core/jellyfinPlaylists.js';
 import { togglePlayerVisibility } from '../utils/mainIndex.js';
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
+import { setupArtistClickHandler } from "../ui/artistModal.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
@@ -61,7 +62,7 @@ export function createModernPlayerUI() {
     e.preventDefault();
     const settings = initSettings();
     settings.open();
-  } },
+    } },
     { className: "kapat-btn", iconClass: "fas fa-times", title: config.languageLabels.close || "Close", onClick: togglePlayerVisibility },
   ];
 
@@ -219,6 +220,7 @@ export function createModernPlayerUI() {
   musicPlayerState.audio.volume = musicPlayerState.userSettings.volume || 0.7;
   setupProgressControls();
   loadUserSettings();
+  setupArtistClickHandler();
 
   return { player, albumArt, title: titleContainer, artist, progressBar, progress, playPauseBtn, progressContainer, currentTimeEl, durationEl, volumeSlider, lyricsContainer, lyricsBtn };
 }
@@ -279,7 +281,6 @@ export async function updateNextTracks() {
       e.stopPropagation();
       playTrack(nextIndex);
     };
-
     trackElement.append(coverElement, titleElement);
     nextTracksList.appendChild(trackElement);
 

@@ -1,5 +1,13 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  unknownTrack: "Unbekannter Song",
+  InTrack: "Ein Song mit diesem Namen ist bereits in der Liste",
+  noTrack: "Kein Song für diesen Künstler gefunden",
+  errorAlbum: "Fehler beim Laden der Songs",
+  hiddenBio: "Biografie ausblenden",
+  visibleBio: "Biografie anzeigen",
+  track: "Song",
+  placeholder: "In gelisteten Songs suchen...",
   sirada: "Die Nächsten",
   removeSelected: "Ausgewählte entfernen",
   confirmRemoveSelected: "Ausgewählte Lieder entfernen?",

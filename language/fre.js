@@ -1,5 +1,13 @@
 export const languageLabels = {
   defaultLanguage: "Langue par défaut",
+  unknownTrack: "Chanson inconnue",
+  alreadyInTrack: "Une chanson avec ce nom est déjà dans la liste",
+  noTrack: "Aucune chanson trouvée pour cet artiste",
+  errorAlbum: "Une erreur s'est produite lors du chargement des chansons",
+  hiddenBio: "Masquer la biographie",
+  visibleBio: "Afficher la biographie",
+  track: "Chanson",
+  placeholder: "Rechercher dans les chansons listées...",
   sirada: "Les suivants",
   unauthorizedAccess: "Accès non autorisé - Veuillez vérifier votre authentification",
   accessForbidden: "Accès interdit - Vous ne disposez peut-être pas des autorisations nécessaires",
