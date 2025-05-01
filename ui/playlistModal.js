@@ -5,7 +5,6 @@ import { playTrack } from "../player/playback.js";
 import { saveCurrentPlaylistToJellyfin, removeItemsFromPlaylist } from "../core/playlist.js";
 import { fetchJellyfinPlaylists } from "../core/jellyfinPlaylists.js";
 
-
 const config = getConfig();
 
 export function createPlaylistModal() {
@@ -448,7 +447,9 @@ export function updatePlaylistModal() {
   const itemsContainer = musicPlayerState.playlistItemsContainer;
   itemsContainer.innerHTML = "";
 
-  musicPlayerState.playlist.forEach((track, index) => {
+  const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+
+   musicPlayerState.playlist.forEach(async (track, index) => {
     const item = document.createElement("div");
     item.className = `playlist-item ${index === musicPlayerState.currentIndex ? "active" : ""} ${
       musicPlayerState.selectedTracks.has(index) ? "selected" : ""
@@ -490,6 +491,8 @@ export function updatePlaylistModal() {
     if (imageTag) {
       const imageId = track.AlbumId || track.Id;
       img.style.backgroundImage = `url('${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}')`;
+    } else {
+      img.style.backgroundImage = DEFAULT_ARTWORK;
     }
 
     const info = document.createElement("div");

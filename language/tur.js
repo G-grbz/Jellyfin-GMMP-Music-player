@@ -1,5 +1,9 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  allMusic: "Tüm Müzikler",
+  fetchAllMusic: "Tüm müzikleri getir",
+  artist: "Sanatçı",
+  errorLoadAllMusic: "Tüm müzikler yüklenirken hata oluştu",
   unknownTrack: "Bilinmeyen Şarkı",
   alreadyInTrack: "Bu isimde bir şarkı zaten listede",
   noTrack: "Sanatçıya ait şarkı bulunamadı",

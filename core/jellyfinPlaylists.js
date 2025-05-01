@@ -72,61 +72,80 @@ function getStreamUrl(itemId) {
 }
 
 export async function playJellyfinPlaylist(playlistId) {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    showNotification(config.languageLabels.authRequired);
-    return;
-  }
-
-  try {
-    const userId = window.ApiClient.getCurrentUserId();
-    const playlistResponse = await fetch(
-      `/Playlists/${playlistId}/Items?UserId=${userId}&Fields=PrimaryImageAspectRatio,MediaSources,Chapters,ArtistItems,AlbumArtist,Album,Genres`,
-      { headers: { "X-Emby-Token": authToken } }
-    );
-
-    if (!playlistResponse.ok) throw new Error(`HTTP error! status: ${playlistResponse.status}`);
-
-    const data = await playlistResponse.json();
-    const items = data.Items || [];
-
-    if (!items.length) {
-      showNotification(config.languageLabels.emptyPlaylist);
-      return;
+    const authToken = getAuthToken();
+    if (!authToken) {
+        showNotification(config.languageLabels.authRequired);
+        return;
     }
 
-    const playlist = items.map(item => ({
-      Id: item.Id,
-      Name: item.Name,
-      Artists: item.ArtistItems?.map(a => a.Name) || [item.AlbumArtist] || [],
-      AlbumArtist: item.AlbumArtist,
-      Album: item.Album,
-      AlbumId: item.AlbumId,
-      IndexNumber: item.IndexNumber,
-      ProductionYear: item.ProductionYear,
-      RunTimeTicks: item.RunTimeTicks,
-      AlbumPrimaryImageTag: item.AlbumPrimaryImageTag || item.ImageTags?.Primary,
-      PrimaryImageTag: item.ImageTags?.Primary,
-      mediaSource: getStreamUrl(item.Id),
-      jellyfinItem: item
-    }));
+    try {
+        const userId = window.ApiClient.getCurrentUserId();
+        const playlistResponse = await fetch(
+            `/Playlists/${playlistId}/Items?UserId=${userId}&Fields=PrimaryImageAspectRatio,MediaSources,Chapters,ArtistItems,AlbumArtist,Album,Genres`,
+            { headers: { "X-Emby-Token": authToken } }
+        );
 
-    musicPlayerState.playlist = playlist;
-    musicPlayerState.currentIndex = 0;
-    musicPlayerState.playlistSource = 'jellyfin';
-    musicPlayerState.currentPlaylistId = playlistId;
-    musicPlayerState.originalPlaylist = [...playlist];
-    musicPlayerState.currentAlbumName = playlist[0]?.Album || "Bilinmeyen Albüm";
-    musicPlayerState.currentTrackName = playlist[0]?.Name || "Bilinmeyen Şarkı";
+        if (!playlistResponse.ok) throw new Error(`HTTP error! status: ${playlistResponse.status}`);
 
-    updatePlaylistModal();
-    showNotification(`${items.length} ${config.languageLabels.tracks}`);
-    playTrack(0);
+        const data = await playlistResponse.json();
+        const items = data.Items || [];
 
-  } catch (error) {
-    console.error("Çalma listesi oynatma hatası:", error);
-    showNotification(config.languageLabels.playlistPlayError);
-  }
+        if (!items.length) {
+            showNotification(config.languageLabels.emptyPlaylist);
+            return;
+        }
+
+        const playlist = items.map(item => ({
+            Id: item.Id,
+            Name: item.Name,
+            Artists: item.ArtistItems?.map(a => a.Name) || [item.AlbumArtist] || [],
+            AlbumArtist: item.AlbumArtist,
+            Album: item.Album,
+            AlbumId: item.AlbumId,
+            IndexNumber: item.IndexNumber,
+            ProductionYear: item.ProductionYear,
+            RunTimeTicks: item.RunTimeTicks,
+            AlbumPrimaryImageTag: item.AlbumPrimaryImageTag || item.ImageTags?.Primary,
+            PrimaryImageTag: item.ImageTags?.Primary,
+            mediaSource: getStreamUrl(item.Id),
+            jellyfinItem: item,
+            ArtistId: item.ArtistItems?.[0]?.Id || null
+        }));
+
+        musicPlayerState.playlist = playlist;
+        musicPlayerState.currentIndex = 0;
+        musicPlayerState.playlistSource = 'jellyfin';
+        musicPlayerState.currentPlaylistId = playlistId;
+        musicPlayerState.originalPlaylist = [...playlist];
+        musicPlayerState.currentAlbumName = playlist[0]?.Album || "Bilinmeyen Albüm";
+        musicPlayerState.currentTrackName = playlist[0]?.Name || "Bilinmeyen Şarkı";
+
+        const artistElement = musicPlayerState.modernArtistEl;
+        if (artistElement) {
+            artistElement.style.cursor = "pointer";
+            artistElement.addEventListener("click", async () => {
+                const artistName = artistElement.textContent.trim();
+                if (artistName && artistName !== config.languageLabels.artistUnknown) {
+                    const currentTrack = musicPlayerState.playlist[musicPlayerState.currentIndex];
+                    const artistId = currentTrack.ArtistId ||
+                                    currentTrack?.ArtistItems?.[0]?.Id ||
+                                    currentTrack?.AlbumArtistId ||
+                                    currentTrack?.ArtistId ||
+                                    null;
+
+                    await toggleArtistModal(true, artistName, artistId);
+                }
+            });
+        }
+
+        updatePlaylistModal();
+        showNotification(`${items.length} ${config.languageLabels.tracks}`);
+        playTrack(0);
+
+    } catch (error) {
+        console.error("Çalma listesi oynatma hatası:", error);
+        showNotification(config.languageLabels.playlistPlayError);
+    }
 }
 
 export async function showJellyfinPlaylistsModal() {

@@ -1,5 +1,9 @@
 export const languageLabels = {
   defaultLanguage: "Default Language",
+  allMusic: "All Music",
+  fetchAllMusic: "Fetch all music",
+  artist: "Artist",
+  errorLoadAllMusic: "Error loading all music",
   unknownTrack: "Unknown Song",
   alreadyInTrack: "A song with this name already exists in the list",
   noTrack: "No song found for this artist",

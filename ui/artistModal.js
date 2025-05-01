@@ -54,9 +54,16 @@ export function createArtistModal() {
     const closeContainer = document.createElement("div");
     closeContainer.className = "modal-close-container";
 
+    const fetchAllMusicBtn = document.createElement("div");
+    fetchAllMusicBtn.className = "modal-fetch-all-music-btn";
+    fetchAllMusicBtn.innerHTML = '<i class="fa-solid fa-music-magnifying-glass"></i>';
+    fetchAllMusicBtn.title = config.languageLabels.fetchAllMusic || "Tüm müzikleri getir";
+    fetchAllMusicBtn.onclick = loadAllMusicFromJellyfin;
+
     const saveToPlaylistBtn = document.createElement("div");
     saveToPlaylistBtn.className = "modal-save-to-playlist-btn";
     saveToPlaylistBtn.innerHTML = '<i class="fas fa-save"></i>';
+    saveToPlaylistBtn.title = config.languageLabels.saveToPlaylist || "Playlist'e kaydet";
     saveToPlaylistBtn.disabled = selectedTrackIds.size === 0;
     saveToPlaylistBtn.onclick = showSaveToPlaylistModal;
 
@@ -68,6 +75,7 @@ export function createArtistModal() {
     closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
     closeBtn.onclick = () => toggleArtistModal(false);
 
+    closeContainer.appendChild(fetchAllMusicBtn);
     closeContainer.appendChild(saveToPlaylistBtn);
     closeContainer.appendChild(closeBtn);
     modalContent.appendChild(closeContainer);
@@ -127,6 +135,73 @@ export function createArtistModal() {
     });
 
     return artistModal;
+}
+
+async function loadAllMusicFromJellyfin() {
+    const tracksContainer = document.querySelector("#artist-modal .modal-artist-tracks-container");
+    tracksContainer.innerHTML = '<div class="modal-loading-spinner"></div>';
+
+    try {
+        const { serverUrl, userId, apiKey, isValid } = getJellyfinCredentials();
+        let allMusic = [];
+        let albums = new Set();
+        let artists = new Set();
+
+        if (isValid) {
+            let musicUrl = `${window.location.origin}/Users/${userId}/Items?` + new URLSearchParams({
+                Recursive: true,
+                IncludeItemTypes: "Audio",
+                Fields: "PrimaryImageAspectRatio,MediaSources,AlbumArtist,Album,Artists",
+                Limit: 20000,
+                SortBy: "AlbumArtist,Album,SortName",
+                api_key: apiKey
+            });
+
+            const response = await fetch(musicUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            allMusic = data.Items || [];
+
+            allMusic.forEach(track => {
+                if (track.Album) albums.add(track.Album);
+                if (track.Artists) {
+                    track.Artists.forEach(artist => artists.add(artist));
+                }
+                if (track.AlbumArtist) {
+                    artists.add(track.AlbumArtist);
+                }
+            });
+        }
+
+        allTracks = [...allMusic];
+
+        displayArtistTracks(allTracks);
+
+        const tracksCountElement = document.querySelector("#artist-modal .modal-artist-tracks-count");
+        const albumCountElement = document.querySelector("#artist-modal .modal-artist-album-count");
+        const artistNameElement = document.querySelector("#artist-modal .modal-artist-name");
+
+        artistNameElement.textContent = config.languageLabels.allMusic || "Tüm Müzikler";
+        tracksCountElement.textContent = `${allTracks.length} ${config.languageLabels.track}`;
+        albumCountElement.textContent = `${albums.size} ${config.languageLabels.album}`;
+
+        const artistMeta = document.querySelector("#artist-modal .modal-artist-meta");
+        const artistCount = document.createElement("span");
+        artistCount.className = "modal-artist-artist-count";
+        artistCount.textContent = `${artists.size} ${config.languageLabels.artist}`;
+
+        artistMeta.innerHTML = '';
+        artistMeta.append(tracksCountElement, albumCountElement, artistCount);
+
+    } catch (error) {
+        console.error("Tüm müzikler yüklenirken hata:", error);
+        tracksContainer.innerHTML = `
+            <div class="modal-error-message">
+                ${config.languageLabels.errorLoadAllMusic || "Tüm müzikler yüklenirken hata oluştu"}
+                <div class="modal-error-detail">${error.message}</div>
+            </div>
+        `;
+    }
 }
 
 async function showSaveToPlaylistModal() {
@@ -465,32 +540,38 @@ async function loadArtistTracks(artistName, artistId) {
         if (oldBio) oldBio.remove();
 
         if (artistDetails?.Overview) {
-            const bioContainer = document.createElement("div");
-            bioContainer.className = "modal-bio-container";
+        const bioContainer = document.createElement("div");
+        bioContainer.className = "modal-bio-container";
 
-            const bioToggle = document.createElement("button");
-            bioToggle.className = "modal-bio-toggle collapsed";
+        const bioToggle = document.createElement("button");
+        bioToggle.className = "modal-bio-toggle collapsed";
+        bioToggle.innerHTML = `<i class="fas fa-chevron-down"></i> ${config.languageLabels.visibleBio}`;
+
+        const artistBio = document.createElement("div");
+        artistBio.className = "modal-artist-bio";
+
+        const bioText = artistDetails.Overview;
+        const safeBioText = bioText.replace(
+            /(?<!\b(?:Mr|Mrs|Ms|Dr|Prof|Sn|St|vs|No|etc|Jr|Sr|Ltd|Inc|Co|Doç|Av|Yrd|Öğr\.?Gör|Arş\.?Gör|Bkz))\.(\s+)(?=\p{Lu})/gu,
+            '.<br>'
+            );
+        artistBio.innerHTML = safeBioText;
+
+        bioToggle.addEventListener("click", () => {
+        bioToggle.classList.toggle("collapsed");
+        bioToggle.classList.toggle("expanded");
+        artistBio.classList.toggle("expanded");
+
+        if (bioToggle.classList.contains("expanded")) {
+            bioToggle.innerHTML = `<i class="fas fa-chevron-up"></i> ${config.languageLabels.hiddenBio}`;
+        } else {
             bioToggle.innerHTML = `<i class="fas fa-chevron-down"></i> ${config.languageLabels.visibleBio}`;
-
-            const artistBio = document.createElement("div");
-            artistBio.className = "modal-artist-bio";
-            artistBio.textContent = artistDetails.Overview;
-
-            bioToggle.addEventListener("click", () => {
-                bioToggle.classList.toggle("collapsed");
-                bioToggle.classList.toggle("expanded");
-                artistBio.classList.toggle("expanded");
-
-                if (bioToggle.classList.contains("expanded")) {
-                    bioToggle.innerHTML = `<i class="fas fa-chevron-up"></i> ${config.languageLabels.hiddenBio}`;
-                } else {
-                    bioToggle.innerHTML = `<i class="fas fa-chevron-down"></i> ${config.languageLabels.visibleBio}`;
-                }
-            });
-
-            bioContainer.append(bioToggle, artistBio);
-            document.querySelector(".modal-artist-info").appendChild(bioContainer);
         }
+    });
+
+    bioContainer.append(bioToggle, artistBio);
+    document.querySelector(".modal-artist-info").appendChild(bioContainer);
+}
 
     } catch (error) {
         console.error("Sanatçı şarkıları yüklenirken hata:", error);
@@ -543,7 +624,6 @@ function displayArtistTracks(tracks) {
     playSelectedBtn.title = config.languageLabels.addToExisting;
     playSelectedBtn.innerHTML = '<i class="fa-solid fa-plus-large"></i>';
     playSelectedBtn.disabled = selectedTrackIds.size === 0;
-
 
     playSelectedContainer.appendChild(playSelectedBtn);
 
@@ -598,21 +678,24 @@ function displayArtistTracks(tracks) {
 
     const albums = {};
     tracks.forEach(track => {
+        const albumArtist = track.AlbumArtist || track.Artists?.[0] || config.languageLabels.artistUnknown;
         const albumName = track.Album || config.languageLabels.unknownTrack;
-        if (!albums[albumName]) {
-            albums[albumName] = [];
+        const albumKey = `${albumArtist} - ${albumName}`;
+
+        if (!albums[albumKey]) {
+            albums[albumKey] = [];
         }
-        albums[albumName].push(track);
+        albums[albumKey].push(track);
     });
 
-    Object.keys(albums).sort().forEach(albumName => {
+    Object.keys(albums).sort().forEach(albumKey => {
         const albumHeader = document.createElement("div");
         albumHeader.className = "modal-album-header";
 
         const albumCover = document.createElement("div");
         albumCover.className = "modal-album-cover";
 
-        const firstTrack = albums[albumName][0];
+        const firstTrack = albums[albumKey][0];
         if (firstTrack.AlbumId && (firstTrack.AlbumPrimaryImageTag || firstTrack.PrimaryImageTag)) {
             const imageTag = firstTrack.AlbumPrimaryImageTag || firstTrack.PrimaryImageTag;
             let imageUrl = `${window.location.origin}/Items/${firstTrack.AlbumId}/Images/Primary?fillHeight=100&quality=80&tag=${imageTag}`;
@@ -627,7 +710,7 @@ function displayArtistTracks(tracks) {
 
         const albumTitle = document.createElement("h3");
         albumTitle.className = "modal-album-title";
-        albumTitle.textContent = albumName;
+        albumTitle.textContent = albumKey;
 
         const albumYear = document.createElement("div");
         albumYear.className = "modal-album-year";
@@ -637,7 +720,7 @@ function displayArtistTracks(tracks) {
         albumHeader.append(albumCover, albumInfo);
         tracksContainer.appendChild(albumHeader);
 
-        albums[albumName].forEach((track, index) => {
+        albums[albumKey].forEach((track, index) => {
             const trackElement = document.createElement("div");
             trackElement.className = "modal-artist-track-item";
 
@@ -681,40 +764,38 @@ function displayArtistTracks(tracks) {
             trackElement.append(trackCheckbox, trackPosition, trackInfo, trackDuration);
 
             trackElement.addEventListener("click", (e) => {
-            if (e.target.tagName === 'INPUT') return;
+                if (e.target.tagName === 'INPUT') return;
 
-            const newPlaylist = [...musicPlayerState.playlist];
-
-            const currentIndex = musicPlayerState.currentIndex;
-
-            const existingIndex = newPlaylist.findIndex(t =>
-                t.Id === track.Id || t.Name === track.Name
-            );
-
-            if (existingIndex === -1) {
-                newPlaylist.splice(currentIndex + 1, 0, track);
-                musicPlayerState.playlist = newPlaylist;
-
-                showNotification(
-                    `${config.languageLabels.addingsuccessful}`,
-                    2000,
-                    'addplaylist'
+                const newPlaylist = [...musicPlayerState.playlist];
+                const currentIndex = musicPlayerState.currentIndex;
+                const existingIndex = newPlaylist.findIndex(t =>
+                    t.Id === track.Id || t.Name === track.Name
                 );
 
-                const newIndex = currentIndex + 1;
-                playTrack(newIndex);
-            } else {
-                showNotification(
-                    `${config.languageLabels.alreadyInTrack}`,
-                    2000,
-                    'addplaylist'
-                );
-                playTrack(existingIndex);
-            }
+                if (existingIndex === -1) {
+                    newPlaylist.splice(currentIndex + 1, 0, track);
+                    musicPlayerState.playlist = newPlaylist;
+
+                    showNotification(
+                        `${config.languageLabels.addingsuccessful}`,
+                        2000,
+                        'addplaylist'
+                    );
+
+                    const newIndex = currentIndex + 1;
+                    playTrack(newIndex);
+                } else {
+                    showNotification(
+                        `${config.languageLabels.alreadyInTrack}`,
+                        2000,
+                        'addplaylist'
+                    );
+                    playTrack(existingIndex);
+                }
+            });
+
+            tracksContainer.appendChild(trackElement);
         });
-
-        tracksContainer.appendChild(trackElement);
-    });
     });
 
     updateSelectAllState();
@@ -728,8 +809,18 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
 
         document.querySelector("#artist-modal .modal-artist-name").textContent = artistName || config.languageLabels.artistUnknown;
         document.querySelector("#artist-modal .modal-artist-image").style.backgroundImage = DEFAULT_ARTWORK;
-        document.querySelector("#artist-modal .modal-artist-tracks-count").textContent = "";
-        document.querySelector("#artist-modal .modal-artist-album-count").textContent = "";
+
+        const artistMeta = document.querySelector("#artist-modal .modal-artist-meta");
+        artistMeta.innerHTML = '';
+
+        const tracksCountElement = document.createElement("span");
+        tracksCountElement.className = "modal-artist-tracks-count";
+
+        const albumCountElement = document.createElement("span");
+        albumCountElement.className = "modal-artist-album-count";
+
+        artistMeta.append(tracksCountElement, albumCountElement);
+
         document.querySelector("#artist-modal .modal-artist-search").value = "";
 
         const oldBio = document.querySelector("#artist-modal .modal-bio-container");
@@ -747,6 +838,9 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
             if (searchInput) searchInput.focus();
         }, 100);
     } else {
+        const artistMeta = document.querySelector("#artist-modal .modal-artist-meta");
+        if (artistMeta) artistMeta.innerHTML = '';
+
         artistModal.style.display = "none";
         artistModal.classList.add("hidden");
         artistModal.setAttribute("aria-hidden", "true");
