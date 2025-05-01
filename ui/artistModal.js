@@ -458,8 +458,8 @@ async function loadArtistTracks(artistName, artistId) {
             artistNameElement.textContent = artistName || config.languageLabels.artistUnknown;
         }
 
-        tracksCountElement.textContent = `${allTracks.length} şarkı`;
-        albumCountElement.textContent = `${albums.size} albüm`;
+        tracksCountElement.textContent = `${allTracks.length} ${config.languageLabels.track}`;
+        albumCountElement.textContent = `${albums.size} ${config.languageLabels.album}`;
 
         const oldBio = document.querySelector(".modal-bio-container");
         if (oldBio) oldBio.remove();
