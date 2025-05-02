@@ -807,6 +807,9 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
     if (show) {
         selectedTrackIds = new Set();
 
+        const tracksContainer = document.querySelector("#artist-modal .modal-artist-tracks-container");
+        tracksContainer.innerHTML = '<div class="modal-loading-spinner"></div>';
+
         document.querySelector("#artist-modal .modal-artist-name").textContent = artistName || config.languageLabels.artistUnknown;
         document.querySelector("#artist-modal .modal-artist-image").style.backgroundImage = DEFAULT_ARTWORK;
 
@@ -815,6 +818,7 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
 
         const tracksCountElement = document.createElement("span");
         tracksCountElement.className = "modal-artist-tracks-count";
+        tracksCountElement.textContent = config.languageLabels.loading || "Yükleniyor...";
 
         const albumCountElement = document.createElement("span");
         albumCountElement.className = "modal-artist-album-count";
@@ -831,7 +835,17 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
         artistModal.setAttribute("aria-hidden", "false");
         document.body.style.overflow = "hidden";
 
-        await loadArtistTracks(artistName, artistId);
+        try {
+            await loadArtistTracks(artistName, artistId);
+        } catch (error) {
+            console.error("Error loading artist tracks:", error);
+            tracksContainer.innerHTML = `
+                <div class="modal-error-message">
+                    ${config.languageLabels.errorLoadTracks || "Şarkılar yüklenirken hata oluştu"}
+                    <div class="modal-error-detail">${error.message}</div>
+                </div>
+            `;
+        }
 
         setTimeout(() => {
             const searchInput = document.querySelector("#artist-modal .modal-artist-search");
