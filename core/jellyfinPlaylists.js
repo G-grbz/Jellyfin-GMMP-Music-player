@@ -4,6 +4,7 @@ import { musicPlayerState } from "./state.js";
 import { getConfig } from "./configLoader.js";
 import { playTrack } from "../player/playback.js";
 import { updatePlaylistModal } from "../ui/playlistModal.js";
+import { toggleArtistModal } from "../ui/artistModal.js";
 
 const config = getConfig();
 let isPlaylistModalOpen = false;
@@ -14,7 +15,7 @@ let handleDocClick = null;
 
 function closeModal() {
   if (!modalElement && !backdropElement) return;
-  modalElement?.classList.add("jellyfin-playlist-modal--closing");
+  modalElement?.classList.add("jellyfin-playlist-modal");
   backdropElement?.classList.add("jellyfin-playlist-modal__backdrop--closing");
 
   setTimeout(() => {
@@ -117,8 +118,8 @@ export async function playJellyfinPlaylist(playlistId) {
         musicPlayerState.playlistSource = 'jellyfin';
         musicPlayerState.currentPlaylistId = playlistId;
         musicPlayerState.originalPlaylist = [...playlist];
-        musicPlayerState.currentAlbumName = playlist[0]?.Album || "Bilinmeyen Albüm";
-        musicPlayerState.currentTrackName = playlist[0]?.Name || "Bilinmeyen Şarkı";
+        musicPlayerState.currentAlbumName = playlist[0]?.Album || config.languageLabels.unknownAlbum;
+        musicPlayerState.currentTrackName = playlist[0]?.Name || config.languageLabels.unknownTrack;
 
         const artistElement = musicPlayerState.modernArtistEl;
         if (artistElement) {
@@ -176,28 +177,58 @@ export async function showJellyfinPlaylistsModal() {
 
   const list = document.createElement('div');
   list.className = 'jellyfin-playlist-modal__list';
+
   playlists.forEach(pl => {
     const item = document.createElement('div');
     item.className = 'jellyfin-playlist-item';
+
     if (pl.imageTag) {
       const img = document.createElement('img');
       img.className = 'jellyfin-playlist-item__image';
       img.src = `${window.ApiClient.serverAddress()}/Items/${pl.id}/Images/Primary?maxHeight=50`;
       item.appendChild(img);
     }
+
     const info = document.createElement('div');
     info.className = 'jellyfin-playlist-item__info';
+
     const name = document.createElement('div');
     name.className = 'jellyfin-playlist-item__name';
     name.textContent = pl.name;
+
     const count = document.createElement('div');
     count.className = 'jellyfin-playlist-item__count';
     count.textContent = `${pl.childCount} ${config.languageLabels.tracks}`;
+
     info.append(name, count);
     item.appendChild(info);
-    item.addEventListener('click', () => { closeModal(); setTimeout(() => playJellyfinPlaylist(pl.id), 350); });
+    const deleteBtn = document.createElement('div');
+    deleteBtn.className = 'jellyfin-playlist-item__delete';
+    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+    deleteBtn.title = config.languageLabels.deletePlaylist;
+    deleteBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  showDeleteConfirmModal(pl.id, async () => {
+    const success = await deleteJellyfinPlaylist(pl.id);
+    if (success) {
+      item.remove();
+      showNotification(config.languageLabels.playlistDeleted);
+    }
+  });
+});
+
+
+    item.appendChild(deleteBtn);
+    item.addEventListener('click', (e) => {
+      if (!e.target.closest('.jellyfin-playlist-item__delete')) {
+        closeModal();
+        setTimeout(() => playJellyfinPlaylist(pl.id), 350);
+      }
+    });
+
     list.appendChild(item);
   });
+
   modalElement.appendChild(list);
 
   const closeBtn = document.createElement('div');
@@ -215,4 +246,77 @@ export async function showJellyfinPlaylistsModal() {
   document.body.appendChild(modalElement);
   modalElement.tabIndex = -1;
   modalElement.focus();
+}
+
+async function deleteJellyfinPlaylist(playlistId) {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    showNotification(config.languageLabels.authRequired);
+    return false;
+  }
+
+  try {
+    const url = `/Items/${playlistId}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'X-Emby-Token': authToken }
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return true;
+  } catch (error) {
+    showNotification(config.languageLabels.playlistDeleteError);
+    return false;
+  }
+}
+
+
+function showDeleteConfirmModal(playlistId, onConfirm) {
+  const confirmBackdrop = document.createElement("div");
+  confirmBackdrop.className = "jellyfin-confirm-modal__backdrop";
+
+  const confirmModal = document.createElement("div");
+  confirmModal.className = "jellyfin-confirm-modal";
+
+  const message = document.createElement("p");
+  message.className = "jellyfin-confirm-modal__message";
+  message.textContent = config.languageLabels.confirmDeletePlaylist;
+
+  const buttons = document.createElement("div");
+  buttons.className = "jellyfin-confirm-modal__buttons";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent = config.languageLabels.no;
+  cancelBtn.className = "jellyfin-btn jellyfin-btn--cancel";
+  cancelBtn.onclick = (e) => {
+    e.stopPropagation();
+    document.body.removeChild(confirmBackdrop);
+  };
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = config.languageLabels.yes;
+  deleteBtn.className = "jellyfin-btn jellyfin-btn--delete";
+  deleteBtn.onclick = async (e) => {
+    e.stopPropagation();
+    document.body.removeChild(confirmBackdrop);
+    await onConfirm();
+  };
+
+  buttons.append(deleteBtn, cancelBtn);
+  confirmModal.append(message, buttons);
+  confirmBackdrop.appendChild(confirmModal);
+
+  confirmBackdrop.onclick = (e) => {
+    e.stopPropagation();
+    if (e.target === confirmBackdrop) {
+      document.body.removeChild(confirmBackdrop);
+    }
+  };
+
+  confirmModal.onclick = (e) => e.stopPropagation();
+
+  document.body.appendChild(confirmBackdrop);
 }

@@ -2,7 +2,10 @@ import { getLanguageLabels, getDefaultLanguage } from '../language/index.js';
 
 const defaultConfig = {
   showLanguageInfo: true,
-  muziklimit: 30,
+  muziklimit: 50,
+  albumlimit: 20,
+  sarkilimit: 200,
+  gruplimit: 200,
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -14,7 +17,10 @@ export function getConfig() {
     ...defaultConfig,
     showLanguageInfo: localStorage.getItem('showLanguageInfo') !== 'false',
     defaultLanguage: localStorage.getItem('defaultLanguage') || defaultConfig.defaultLanguage,
-    muziklimit: parseInt(localStorage.getItem('muziklimit'), 10) || defaultConfig.muziklimit
+    muziklimit: parseInt(localStorage.getItem('muziklimit'), 10) || defaultConfig.muziklimit,
+    albumlimit: parseInt(localStorage.getItem('albumlimit'), 10) || defaultConfig.albumlimit,
+    sarkilimit: parseInt(localStorage.getItem('sarkilimit'), 10) || defaultConfig.sarkilimit,
+    gruplimit: parseInt(localStorage.getItem('gruplimit'), 10) || defaultConfig.gruplimit
   };
 }
 
@@ -25,6 +31,18 @@ export function updateConfig(newConfig) {
 
   if (newConfig.muziklimit !== undefined) {
     localStorage.setItem('muziklimit', newConfig.muziklimit);
+  }
+
+   if (newConfig.albumlimit !== undefined) {
+    localStorage.setItem('albumlimit', newConfig.albumlimit);
+  }
+
+  if (newConfig.sarkilimit !== undefined) {
+    localStorage.setItem('sarkilimit', newConfig.sarkilimit);
+  }
+
+  if (newConfig.gruplimit !== undefined) {
+    localStorage.setItem('gruplimit', newConfig.gruplimit);
   }
 
   if (newConfig.defaultLanguage !== undefined) {

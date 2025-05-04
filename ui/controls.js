@@ -4,6 +4,7 @@ import { showNotification } from "./notification.js";
 import { shuffleArray } from "../utils/domUtils.js";
 import { updatePlaylistModal } from "./playlistModal.js";
 import { playNext, playPrevious, togglePlayPause } from '../player/playback.js';
+import { updateNextTracks } from "./playerUI.js";
 
 const config = getConfig();
 
@@ -210,6 +211,7 @@ export function toggleShuffle() {
 );
   updatePlaylistModal();
   saveUserSettings();
+  updateNextTracks();
 }
 
 function createKeyboardHelpModal() {

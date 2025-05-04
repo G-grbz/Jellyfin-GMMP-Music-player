@@ -8,6 +8,7 @@ import { updatePlaylistModal } from "../ui/playlistModal.js";
 
 
 const config = getConfig();
+const BATCH_SIZE = config.gruplimit;
 
 export async function refreshPlaylist() {
   try {
@@ -27,9 +28,16 @@ export async function refreshPlaylist() {
     const data = await response.json();
     musicPlayerState.playlist = data.Items || [];
     musicPlayerState.originalPlaylist = [...musicPlayerState.playlist];
+    musicPlayerState.effectivePlaylist = [
+      ...musicPlayerState.playlist,
+      ...musicPlayerState.userAddedTracks
+    ];
+
     if (musicPlayerState.userSettings.shuffle) {
-      musicPlayerState.playlist = shuffleArray([...musicPlayerState.playlist]);
+      musicPlayerState.effectivePlaylist = shuffleArray([...musicPlayerState.effectivePlaylist]);
+      musicPlayerState.isShuffled = true;
     }
+
 
     if (musicPlayerState.playlist.length > 0) {
       musicPlayerState.isPlayerVisible = true;
@@ -181,8 +189,12 @@ export async function saveCurrentPlaylistToJellyfin(
 }
 
       if (tracksToActuallyAdd.length > 0) {
-        const idsToAdd = tracksToActuallyAdd.map(track => track.Id);
-        await addItemsToPlaylist(existingPlaylistId, idsToAdd, userId);
+  const idsToAdd = tracksToActuallyAdd.map(track => track.Id);
+
+  for (let i = 0; i < idsToAdd.length; i += BATCH_SIZE) {
+    const batch = idsToAdd.slice(i, i + BATCH_SIZE);
+    await addItemsToPlaylist(existingPlaylistId, batch, userId);
+  }
 
         showNotification(
           `${config.languageLabels.addingsuccessful}`,

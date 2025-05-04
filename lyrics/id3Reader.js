@@ -113,7 +113,6 @@ async function readTagsWithFallback(blob, trackId, fullFetch) {
           /Offset \d+ hasn\'t been loaded yet/.test(error.info);
 
         if (isOffsetErr && !fullFetch) {
-          console.warn("Offset hatası, tam dosyayı indirip yeniden deniyorum…");
           try {
             const token = getAuthToken();
             const fullResp = await fetch(

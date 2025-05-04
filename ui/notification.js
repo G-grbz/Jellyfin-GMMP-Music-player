@@ -50,6 +50,6 @@ function processQueue() {
         container.remove();
       }
       processQueue();
-    }, 300);
+    }, 1000);
   }, duration);
 }

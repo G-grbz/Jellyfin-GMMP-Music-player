@@ -14,7 +14,7 @@ export function createSettingsModal() {
     closeBtn.className = 'settings-close';
     closeBtn.innerHTML = '&times;';
     closeBtn.onclick = () => modal.style.display = 'none';
-    const title = document.createElement('h2');
+    const title = document.createElement('h2-gmmp');
     title.textContent = labels.ayarlarBaslik || 'GP Oynatıcı Ayarları';
     const form = document.createElement('form');
     const languageDiv = document.createElement('div');
@@ -56,22 +56,77 @@ export function createSettingsModal() {
 
     limitDiv.append(limitLabel, limitInput);
 
+    const sarkilimitLabel = document.createElement('label');
+    sarkilimitLabel.textContent = labels.sarkilimit || 'Sayfa başına şarkı sayısı';
+
+    const limitSarki = document.createElement('input');
+    limitSarki.type = 'number';
+    limitSarki.value = config.sarkilimit || 200;
+    limitSarki.name = 'sarkilimit';
+
+    limitDiv.append(sarkilimitLabel, limitSarki);
+
+    const albumlimitLabel = document.createElement('label');
+    albumlimitLabel.textContent = labels.albumlimit || 'Sayfa başına albüm sayısı';
+
+    const limitAlbum = document.createElement('input');
+    limitAlbum.type = 'number';
+    limitAlbum.value = config.albumlimit || 20;
+    limitAlbum.name = 'albumlimit';
+
+    limitDiv.append(albumlimitLabel, limitAlbum);
+
+    const gruplimitLabel = document.createElement('label');
+    gruplimitLabel.textContent = labels.gruplimit || 'Gruplama Limiti';
+    gruplimitLabel.title = labels.gruplimitTitle || 'Mevcut oynatma listesine ekleme yapılırken gruplama limiti';
+
+    const limitGrup = document.createElement('input');
+    limitGrup.type = 'number';
+    limitGrup.value = config.gruplimit || 200;
+    limitGrup.title = labels.gruplimitTitle || 'Mevcut oynatma listesine ekleme yapılırken gruplama limiti';
+    limitGrup.name = 'gruplimit';
+
+    limitDiv.append(gruplimitLabel, limitGrup);
+
+    const btnDiv = document.createElement('div');
+    btnDiv.className = 'btn-item';
+
     const saveBtn = document.createElement('button');
     saveBtn.type = 'submit';
     saveBtn.textContent = labels.kaydet || 'Kaydet';
-    form.append(languageDiv, limitDiv, saveBtn);
+
     form.onsubmit = (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const updatedConfig = {
-            ...config,
-            defaultLanguage: formData.get('defaultLanguage'),
-            muziklimit: parseInt(formData.get('muziklimit'))
-        };
-        updateConfig(updatedConfig);
-        modal.style.display = 'none';
-        location.reload();
+    e.preventDefault();
+    applySettings(true);
+};
+
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.textContent = labels.uygula || 'Uygula';
+    applyBtn.style.marginLeft = '10px';
+    applyBtn.onclick = () => {
+        applySettings(false);
     };
+
+    btnDiv.append(saveBtn, applyBtn);
+
+function applySettings(reload = false) {
+    const formData = new FormData(form);
+    const updatedConfig = {
+        ...config,
+        defaultLanguage: formData.get('defaultLanguage'),
+        muziklimit: parseInt(formData.get('muziklimit')),
+        albumlimit: parseInt(formData.get('albumlimit')),
+        sarkilimit: parseInt(formData.get('sarkilimit')),
+        gruplimit: parseInt(formData.get('gruplimit')),
+    };
+    updateConfig(updatedConfig);
+    modal.style.display = 'none';
+    if (reload) location.reload();
+}
+
+
+    form.append(languageDiv, limitDiv, btnDiv);
     modalContent.append(closeBtn, title, form);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);

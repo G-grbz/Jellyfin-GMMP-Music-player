@@ -1,6 +1,7 @@
 import { initPlayer, togglePlayerVisibility, isPlayerInitialized } from "./utils/mainIndex.js";
 import { refreshPlaylist } from "./core/playlist.js";
 import { updateProgress, updateDuration } from "./player/progress.js";
+import { checkForNewMusic } from "./ui/artistModal.js";
 
 function waitForElement(selector, timeout = 5000) {
   return new Promise((resolve, reject) => {
@@ -63,6 +64,7 @@ async function onToggleClick() {
       }, 1000);
     } else {
       togglePlayerVisibility();
+      checkForNewMusic();
     }
   } catch (err) {
     console.error("GMMP geçiş hatası:", err);

@@ -4,6 +4,7 @@ import { showNotification } from "./notification.js";
 import { playTrack } from "../player/playback.js";
 import { saveCurrentPlaylistToJellyfin, removeItemsFromPlaylist } from "../core/playlist.js";
 import { fetchJellyfinPlaylists } from "../core/jellyfinPlaylists.js";
+import { updateNextTracks } from "./playerUI.js";
 
 const config = getConfig();
 
@@ -624,12 +625,12 @@ export function showRemoveSelectedConfirmModal() {
       if (playlistId) {
         await removeItemsFromPlaylist(playlistId, trackIds);
         showNotification(
-          config.languageLabels.tracksRemoved    || `${count} parça kaldırıldı`,
-          "success"
+          `${count} ${config.languageLabels.tracksRemoved}`    || `${count} parça kaldırıldı`,
+          "info"
         );
       } else {
         showNotification(
-          config.languageLabels.tracksRemovedLocal|| `${count} parça listeden kaldırıldı`,
+          `${count} ${config.languageLabels.tracksRemovedLocal}` || `${count} parça listeden kaldırıldı`,
           "info"
         );
       }
@@ -643,7 +644,7 @@ export function showRemoveSelectedConfirmModal() {
       showNotification(
         playlistId
           ? config.languageLabels.removeError     || "Kaldırma hatası"
-          : config.languageLabels.removeLocalError|| "Yerel silme hatası",
+          : config.languageLabels.removeLocalError || "Yerel silme hatası",
         "error"
       );
     } finally {

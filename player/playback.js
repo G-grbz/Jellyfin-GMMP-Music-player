@@ -109,7 +109,7 @@ export function playPrevious() {
     audio.currentTime = 0;
     showNotification(
       `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-      1500,
+      2000,
       'playnow'
     );
     return;
@@ -120,27 +120,19 @@ export function playPrevious() {
 }
 
 export function playNext() {
-  const { currentIndex, playlist, userSettings, shuffleHistory = [] } = musicPlayerState;
+  const { currentIndex, effectivePlaylist, userSettings } = musicPlayerState;
 
   if (userSettings.shuffleMode) {
     let randomIndex;
     do {
-      randomIndex = Math.floor(Math.random() * playlist.length);
-      if (shuffleHistory.length >= playlist.length) {
-        musicPlayerState.shuffleHistory = [];
-      }
-    } while (shuffleHistory.includes(randomIndex) && playlist.length > 1);
-    musicPlayerState.shuffleHistory = [...shuffleHistory, randomIndex];
+      randomIndex = Math.floor(Math.random() * effectivePlaylist.length);
+    } while (randomIndex === currentIndex && effectivePlaylist.length > 1);
+
     playTrack(randomIndex);
-    showNotification(
-      `Karışık mod: ${playlist[randomIndex].Name || playlist[randomIndex].title}`,
-      1500,
-      'playmode'
-    );
     return;
   }
 
-  const newIndex = (currentIndex + 1) % playlist.length;
+  const newIndex = (currentIndex + 1) % effectivePlaylist.length;
   playTrack(newIndex);
 }
 
@@ -332,14 +324,16 @@ export function playTrack(index) {
     musicPlayerState.mediaSessionInitialized = true;
   }
 
-  const track = musicPlayerState.playlist[index];
-  musicPlayerState.currentIndex = index;
-  musicPlayerState.currentTrackName = track.Name || config.languageLabels.unknownTrack;
-  musicPlayerState.currentAlbumName = track.Album || config.languageLabels.unknownTrack;
+  const track = musicPlayerState.isUserModified ?
+    musicPlayerState.combinedPlaylist[index] :
+    musicPlayerState.playlist[index];
+    musicPlayerState.currentIndex = index;
+    musicPlayerState.currentTrackName = track.Name || config.languageLabels.unknownTrack;
+    musicPlayerState.currentAlbumName = track.Album || config.languageLabels.unknownTrack;
 
   showNotification(
     `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-    1500,
+    2000,
     'playnow'
   );
 
