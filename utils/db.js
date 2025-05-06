@@ -1,20 +1,10 @@
 export class MusicDB {
     constructor() {
         this.dbName = 'JellyfinMusicDB';
-        this.dbVersion = this.calculateDbVersion();
+        this.dbVersion = 6;
         this.storeName = 'tracks';
+        this.deletedStoreName = 'deletedTracks';
         this.db = null;
-    }
-
-    calculateDbVersion() {
-        const versionHistory = {
-            1: 'İlk versiyon - temel track depolama',
-            2: 'DateCreated index eklendi',
-            3: 'Artist bilgileri için yeni indexler eklendi',
-            4: 'Yeni eklenenler için geliştirildi',
-            5: 'geliştirildi'
-        };
-        return Math.max(...Object.keys(versionHistory).map(Number));
     }
 
     async openDB() {
@@ -25,11 +15,30 @@ export class MusicDB {
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
+                let store;
                 if (!db.objectStoreNames.contains(this.storeName)) {
-                    const store = db.createObjectStore(this.storeName, { keyPath: 'Id' });
+                    store = db.createObjectStore(this.storeName, { keyPath: 'Id' });
+                } else {
+                    store = request.transaction.objectStore(this.storeName);
+                }
+
+                if (!store.indexNames.contains('DateCreated'))
                     store.createIndex('DateCreated', 'DateCreated', { unique: false });
+
+                if (!store.indexNames.contains('Album'))
                     store.createIndex('Album', 'Album', { unique: false });
-                    store.createIndex('Artist', 'Artists', { multiEntry: true });
+
+                if (!store.indexNames.contains('Artists'))
+                    store.createIndex('Artists', 'Artists', { multiEntry: true });
+
+                if (!store.indexNames.contains('LastUpdated'))
+                    store.createIndex('LastUpdated', 'LastUpdated', { unique: false });
+
+                if (!db.objectStoreNames.contains(this.deletedStoreName)) {
+                    const deletedStore = db.createObjectStore(this.deletedStoreName, { keyPath: 'id', autoIncrement: true });
+                    deletedStore.createIndex('trackId', 'trackId', { unique: false });
+                    deletedStore.createIndex('deletedAt', 'deletedAt', { unique: false });
+                    deletedStore.createIndex('trackData', 'trackData', { unique: false });
                 }
             };
 
@@ -61,29 +70,16 @@ export class MusicDB {
     }
 
     async getTracksPaginated(page = 1, pageSize = 100) {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.getAll();
-
-            request.onsuccess = () => {
-                const allTracks = request.result || [];
-                const start = (page - 1) * pageSize;
-                const end = start + pageSize;
-                resolve({
-                    tracks: allTracks.slice(start, end),
-                    total: allTracks.length,
-                    page,
-                    pageSize,
-                    totalPages: Math.ceil(allTracks.length / pageSize)
-                });
-            };
-            request.onerror = (event) => {
-                console.error('Parçalar alınırken hata:', event.target.error);
-                reject(event.target.error);
-            };
-        });
+        const allTracks = await this.getAllTracks();
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        return {
+            tracks: allTracks.slice(start, end),
+            total: allTracks.length,
+            page,
+            pageSize,
+            totalPages: Math.ceil(allTracks.length / pageSize)
+        };
     }
 
     async getLastTrack() {
@@ -105,13 +101,34 @@ export class MusicDB {
         });
     }
 
+    async getTracksByArtist(artistName, useId = false) {
+        const db = await this.openDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([this.storeName], 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            const indexName = useId ? 'ArtistIds' : 'Artists';
+
+            if (!store.indexNames.contains(indexName)) {
+                return resolve([]);
+            }
+
+            const index = store.index(indexName);
+            const request = index.getAll(artistName);
+
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async saveTracks(tracks) {
         const db = await this.openDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
+            const now = new Date().toISOString();
 
             tracks.forEach(track => {
+                track.LastUpdated = now;
                 store.put(track);
             });
 
@@ -127,44 +144,99 @@ export class MusicDB {
         for (let i = 0; i < tracks.length; i += batchSize) {
             const batch = tracks.slice(i, i + batchSize);
             await this.saveTracks(batch);
-            console.log(`Toplu kayıt: ${i}-${i + batchSize} arası parçalar kaydedildi`);
         }
     }
 
     async addOrUpdateTracks(tracks) {
+        return this.saveTracks(tracks);
+    }
+
+    async deleteTracks(ids) {
+        const db = await this.openDB();
+        return new Promise(async (resolve, reject) => {
+            const transaction = db.transaction([this.storeName, this.deletedStoreName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            const deletedStore = transaction.objectStore(this.deletedStoreName);
+            const getRequests = ids.map(id => {
+                return new Promise((res, rej) => {
+                    const getReq = store.get(id);
+                    getReq.onsuccess = () => res(getReq.result);
+                    getReq.onerror = () => rej(getReq.error);
+                });
+            });
+
+            try {
+                const tracksToDelete = await Promise.all(getRequests);
+                tracksToDelete.forEach(track => {
+                    if (track) {
+                        store.delete(track.Id);
+                        deletedStore.add({
+                            trackId: track.Id,
+                            trackData: track,
+                            deletedAt: new Date().toISOString()
+                        });
+                    }
+                });
+
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = (event) => {
+                    console.error('Parçalar silinirken hata:', event.target.error);
+                    reject(event.target.error);
+                };
+            } catch (error) {
+                console.error('Silinecek parçalar alınırken hata:', error);
+                reject(error);
+            }
+        });
+    }
+
+    async getRecentlyDeleted() {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.deletedStoreName], 'readonly');
+        const store = transaction.objectStore(this.deletedStoreName);
+        const index = store.index('deletedAt');
+        const request = index.openCursor(null, 'prev');
+
+        const recent = [];
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                recent.push(cursor.value);
+                cursor.continue();
+            } else {
+                resolve(recent);
+            }
+        };
+
+        request.onerror = () => reject(request.error);
+    });
+}
+
+    async deleteAllTracks() {
         const db = await this.openDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
+            const request = store.clear();
 
-            tracks.forEach(track => {
-                store.put(track);
-            });
-
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = (event) => {
-                console.error('Parçalar güncellenirken hata:', event.target.error);
+            request.onsuccess = () => resolve();
+            request.onerror = (event) => {
+                console.error('Tüm parçalar silinirken hata:', event.target.error);
                 reject(event.target.error);
             };
         });
     }
 
-    async deleteTracks(ids) {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
+    async filterTracks(predicateFn) {
+        const allTracks = await this.getAllTracks();
+        return allTracks.filter(predicateFn);
+    }
 
-            ids.forEach(id => {
-                store.delete(id);
-            });
-
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = (event) => {
-                console.error('Parçalar silinirken hata:', event.target.error);
-                reject(event.target.error);
-            };
-        });
+    async deleteTracksByFilter(predicateFn) {
+        const matched = await this.filterTracks(predicateFn);
+        const ids = matched.map(t => t.Id);
+        return this.deleteTracks(ids);
     }
 
     async getTrackCount() {
@@ -181,44 +253,84 @@ export class MusicDB {
             };
         });
     }
-}
 
-async function getTracksByArtist(artistNameOrId) {
+    async getRecentlyUpdated() {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([this.storeName], 'readonly');
         const store = transaction.objectStore(this.storeName);
 
-        let request;
-        if (typeof artistNameOrId === 'string') {
-            const index = store.index('Artists');
-            request = index.getAll(artistNameOrId);
-        } else {
-            const index = store.index('ArtistIds');
-            request = index.getAll(artistNameOrId);
-        }
+        if (!store.indexNames.contains('LastUpdated')) return resolve([]);
 
-        request.onsuccess = () => resolve(request.result || []);
+        const index = store.index('LastUpdated');
+        const request = index.openCursor(null, 'prev');
+
+        const recent = [];
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                recent.push(cursor.value);
+                cursor.continue();
+            } else {
+                resolve(recent);
+            }
+        };
+
         request.onerror = () => reject(request.error);
     });
 }
 
-async function getLastTrack() {
-    const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([this.storeName], 'readonly');
-        const store = transaction.objectStore(this.storeName);
-        const index = store.index('DateCreated');
-        const request = index.openCursor(null, 'prev');
+    async findTrackByName(nameSubstring) {
+        const allTracks = await this.getAllTracks();
+        const lower = nameSubstring.toLowerCase();
+        return allTracks.filter(track => track.Name?.toLowerCase().includes(lower));
+    }
 
-        request.onsuccess = (event) => {
-            const cursor = event.target.result;
-            resolve(cursor ? cursor.value : null);
-        };
-        request.onerror = (event) => {
-            reject(event.target.error);
-        };
+    async groupTracksByAlbum() {
+        const allTracks = await this.getAllTracks();
+        const grouped = {};
+        allTracks.forEach(track => {
+            const album = track.Album || 'Bilinmeyen Albüm';
+            if (!grouped[album]) grouped[album] = [];
+            grouped[album].push(track);
+        });
+        return grouped;
+    }
+
+    async getUniqueArtists() {
+        const allTracks = await this.getAllTracks();
+        const artistSet = new Set();
+        allTracks.forEach(track => {
+            if (Array.isArray(track.Artists)) {
+                track.Artists.forEach(a => artistSet.add(a));
+            }
+        });
+        return Array.from(artistSet);
+    }
+
+    async getStats() {
+    const allTracks = await this.getAllTracks();
+    const totalTracks = allTracks.length;
+    const albums = new Set();
+    const artists = new Set();
+
+    allTracks.forEach(track => {
+        if (track.Album) albums.add(track.Album);
+        if (Array.isArray(track.Artists)) {
+            track.Artists.forEach(artist => artists.add(artist));
+        }
     });
+
+    const recentlyUpdated = await this.getRecentlyUpdated();
+
+    return {
+        totalTracks,
+        totalAlbums: albums.size,
+        totalArtists: artists.size,
+        recentlyUpdated
+    };
+}
+
 }
 
 export const musicDB = new MusicDB();

@@ -44,7 +44,10 @@ export function createSettingsModal() {
     languageDiv.append(languageLabel, languageSelect);
 
     const limitDiv = document.createElement('div');
-    limitDiv.className = 'setting-item';
+    limitDiv.className = 'setting-modal-item';
+
+    const musicLimitContainer = document.createElement('div');
+    musicLimitContainer.className = 'setting-item';
 
     const limitLabel = document.createElement('label');
     limitLabel.textContent = labels.muziklimit || 'Müzik Limiti:';
@@ -54,7 +57,10 @@ export function createSettingsModal() {
     limitInput.value = config.muziklimit || 100;
     limitInput.name = 'muziklimit';
 
-    limitDiv.append(limitLabel, limitInput);
+    musicLimitContainer.append(limitLabel, limitInput);
+
+    const songLimitContainer = document.createElement('div');
+    songLimitContainer.className = 'setting-item';
 
     const sarkilimitLabel = document.createElement('label');
     sarkilimitLabel.textContent = labels.sarkilimit || 'Sayfa başına şarkı sayısı';
@@ -64,7 +70,10 @@ export function createSettingsModal() {
     limitSarki.value = config.sarkilimit || 200;
     limitSarki.name = 'sarkilimit';
 
-    limitDiv.append(sarkilimitLabel, limitSarki);
+    songLimitContainer.append(sarkilimitLabel, limitSarki);
+
+    const albumLimitContainer = document.createElement('div');
+    albumLimitContainer.className = 'setting-item';
 
     const albumlimitLabel = document.createElement('label');
     albumlimitLabel.textContent = labels.albumlimit || 'Sayfa başına albüm sayısı';
@@ -74,7 +83,10 @@ export function createSettingsModal() {
     limitAlbum.value = config.albumlimit || 20;
     limitAlbum.name = 'albumlimit';
 
-    limitDiv.append(albumlimitLabel, limitAlbum);
+    albumLimitContainer.append(albumlimitLabel, limitAlbum);
+
+    const groupLimitContainer = document.createElement('div');
+    groupLimitContainer.className = 'setting-item';
 
     const gruplimitLabel = document.createElement('label');
     gruplimitLabel.textContent = labels.gruplimit || 'Gruplama Limiti';
@@ -86,7 +98,14 @@ export function createSettingsModal() {
     limitGrup.title = labels.gruplimitTitle || 'Mevcut oynatma listesine ekleme yapılırken gruplama limiti';
     limitGrup.name = 'gruplimit';
 
-    limitDiv.append(gruplimitLabel, limitGrup);
+    groupLimitContainer.append(gruplimitLabel, limitGrup);
+
+    limitDiv.append(
+        musicLimitContainer,
+        songLimitContainer,
+        albumLimitContainer,
+        groupLimitContainer
+    );
 
     const btnDiv = document.createElement('div');
     btnDiv.className = 'btn-item';

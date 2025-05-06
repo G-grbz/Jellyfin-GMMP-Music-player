@@ -8,12 +8,15 @@ import { getConfig } from "../core/configLoader.js";
 import { musicDB } from "../utils/db.js";
 import { updateNextTracks } from "./playerUI.js";
 import { shuffleArray } from "../utils/domUtils.js";
+import { showStatsModal } from "./statsModal.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
 const SEARCH_DEBOUNCE_TIME = 300;
 const TRACKS_PER_PAGE = config.sarkilimit;
 const ALBUMS_PER_PAGE = config.albumlimit;
+const BATCH_SIZE = config.gruplimit;
+const allNewTracks = [];
 
 let artistModal = null;
 let searchDebounceTimer = null;
@@ -91,11 +94,13 @@ export function createArtistModal() {
     fetchNewMusicBtn.title = config.languageLabels.syncDB || "Veri tabanını senkronize et";
     fetchNewMusicBtn.onclick = async () => {
     fetchNewMusicBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    showNotification(config.languageLabels.restartDb || "Senkronizasyon başlatıldı...", 3000, 'db');
+    showNotification(config.languageLabels.syncStarted || "Senkronizasyon başlatıldı...", 3000, 'db');
 
     try {
         await checkForNewMusic();
+        showNotification(config.languageLabels.syncCompleted || "Senkronizasyon tamamlandı", 3000, 'success');
     } catch (error) {
+        console.error('Senkronizasyon hatası:', error);
     } finally {
         fetchNewMusicBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
     }
@@ -108,6 +113,13 @@ export function createArtistModal() {
     saveToPlaylistBtn.disabled = selectedTrackIds.size === 0;
     saveToPlaylistBtn.onclick = showSaveToPlaylistModal;
 
+    const showStatsBtn = document.createElement("div");
+    showStatsBtn.className = "modal-show-stats-btn";
+    showStatsBtn.innerHTML = '<i class="fa-solid fa-chart-simple"></i>';
+    showStatsBtn.title = config.languageLabels.stats || "İstatistikleri göster";
+    showStatsBtn.onclick = () => showStatsModal();
+
+
     const headerActions = document.createElement("div");
     headerActions.className = "modal-header-actions";
 
@@ -116,6 +128,7 @@ export function createArtistModal() {
     closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
     closeBtn.onclick = () => toggleArtistModal(false);
 
+    closeContainer.appendChild(showStatsBtn);
     closeContainer.appendChild(fetchAllMusicBtn);
     closeContainer.appendChild(fetchNewMusicBtn);
     closeContainer.appendChild(saveToPlaylistBtn);
@@ -202,6 +215,7 @@ searchContainer.append(searchInput, clearSearchBtn);
 
     return artistModal;
 }
+
 
 async function loadAllMusicFromJellyfin() {
     const artistModal = document.getElementById("artist-modal");
@@ -598,40 +612,31 @@ function displayPaginatedAlbums() {
     displayArtistTracks(paginatedTracks);
 }
 
-function startBackgroundSync() {
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-        navigator.serviceWorker.ready.then((registration) => {
-            registration.sync.register('sync-new-music');
-        }).catch((error) => {
-        });
-    } else {
-        setInterval(checkForNewMusic, 12 * 60 * 60 * 1000);
-    }
-}
 
 export async function checkForNewMusic() {
     try {
         const { serverUrl, userId, apiKey, isValid } = getJellyfinCredentials();
         if (!isValid) return;
-        const lastTrack = await musicDB.getLastTrack();
-        const lastUpdateDate = lastTrack?.DateCreated;
+
         const allMusicUrl = `${window.location.origin}/Users/${userId}/Items?` + new URLSearchParams({
             Recursive: true,
             IncludeItemTypes: "Audio",
-            Fields: "Id,DateCreated",
+            Fields: "PrimaryImageAspectRatio,MediaSources,AlbumArtist,Album,Artists,Genres",
             Limit: 20000,
             SortBy: "DateCreated",
             SortOrder: "Ascending",
-            ...(lastUpdateDate && { MinDateCreated: lastUpdateDate }),
             api_key: apiKey
         });
 
         const allMusicResponse = await fetch(allMusicUrl);
         if (!allMusicResponse.ok) throw new Error(`HTTP ${allMusicResponse.status}`);
         const allMusicData = await allMusicResponse.json();
-        const currentTrackIds = new Set(allMusicData.Items.map(item => item.Id));
+        const currentTracks = allMusicData.Items || [];
+        const currentTrackIds = new Set(currentTracks.map(item => item.Id));
+
         const dbTracks = await musicDB.getAllTracks();
         const dbTrackIds = new Set(dbTracks.map(track => track.Id));
+
         const deletedTrackIds = new Set();
         dbTrackIds.forEach(id => {
             if (!currentTrackIds.has(id)) {
@@ -645,45 +650,34 @@ export async function checkForNewMusic() {
                 newTrackIds.add(id);
             }
         });
+
         if (deletedTrackIds.size > 0) {
             await musicDB.deleteTracks(Array.from(deletedTrackIds));
         }
 
         if (newTrackIds.size > 0) {
-            const newTracksUrl = `${window.location.origin}/Users/${userId}/Items?` + new URLSearchParams({
-                Recursive: true,
-                IncludeItemTypes: "Audio",
-                Fields: "PrimaryImageAspectRatio,MediaSources,AlbumArtist,Album,Artists",
-                Ids: Array.from(newTrackIds).join(','),
-                api_key: apiKey
-            });
-
-            const newTracksResponse = await fetch(newTracksUrl);
-            if (!newTracksResponse.ok) throw new Error(`HTTP ${newTracksResponse.status}`);
-            const newTracksData = await newTracksResponse.json();
-
-            if (newTracksData.Items && newTracksData.Items.length > 0) {
-                await musicDB.addOrUpdateTracks(newTracksData.Items);
-            }
+            const newTracks = currentTracks.filter(track => newTrackIds.has(track.Id));
+            await musicDB.addOrUpdateTracks(newTracks);
         }
+
+        await musicDB.addOrUpdateTracks(currentTracks);
 
         if (newTrackIds.size > 0 || deletedTrackIds.size > 0) {
             let notificationMessage = '';
 
             if (newTrackIds.size > 0) {
                 showNotification(
-                  `${newTrackIds.size} ${config.languageLabels.dbnewTracksAdded || "yeni şarkı eklendi"}`,
-                  4000,
-                  'db'
+                    `${newTrackIds.size} ${config.languageLabels.dbnewTracksAdded || "yeni şarkı eklendi"}`,
+                    4000,
+                    'db'
                 );
             }
 
             if (deletedTrackIds.size > 0) {
-                if (notificationMessage) notificationMessage += ", ";
                 showNotification(
-                  `${deletedTrackIds.size} ${config.languageLabels.dbtracksRemoved || "şarkı silindi"}`,
-                  4000,
-                  'db'
+                    `${deletedTrackIds.size} ${config.languageLabels.dbtracksRemoved || "şarkı silindi"}`,
+                    4000,
+                    'db'
                 );
             }
         }
@@ -707,7 +701,12 @@ export async function checkForNewMusic() {
         }
 
     } catch (error) {
-        console.error('Yeni müzik kontrolü sırasında hata:', error);
+        console.error('Müzik senkronizasyonu sırasında hata:', error);
+        showNotification(
+            config.languageLabels.syncError || "Senkronizasyon sırasında hata oluştu",
+            4000,
+            'error'
+        );
     }
 }
 
@@ -730,7 +729,6 @@ async function getLastTrack() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    startBackgroundSync();
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', (event) => {
