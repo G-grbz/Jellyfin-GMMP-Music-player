@@ -100,3 +100,53 @@ Run the ``` uninstall.bat ``` script as Administrator.
 ### Uninstallation
 
 ``` sudo chmod +x /usr/share/jellyfin/web/GMMP/uninstall.sh && sudo sh /usr/share/jellyfin/web/GMMP/uninstall.sh ``` </details>
+
+
+<details>
+<summary> 🚀 Senkronize Şarkı Sözleri Betiği / Synchronized Lyrics Script </summary>
+
+### Türkçe
+
+lcrlib.net üzerinden şarkı sözlerini çekebilen bir betik ekledim(lcrlib.sh). Bu betik eklentiden bağımsız olarak çalışmaktadır. (Linux)
+
+betiği çalıştırmak için gerekli bağımlılıklar: ```curl, jq, find```
+
+mevcut şarkı isim formatınız ``` "'ad soyad' -  'parça adı'" ``` şekilde olmalıdır örn.: ```Ali Kınık - Ali Ayşeyi Seviyor```
+
+Betiği çalıştırmak için gerekli izinleri verin ve 
+
+``` sh lrclib.sh /Müzik/Dosya/Yolu ``` komutunu çalıştırın alt klasörler dahil arayarak eşleşen şarkı sözlerini indirecektir. ( Öncelik Senkronize şarkı sözleri mevcut değil ise normal) 
+
+Mevcut şarkı sözlerinizin üzerine yazmak isterseniz, komut sonuna ```--overwrite``` ekleyin yani ```sh lrclib.sh /Müzik/Dosya/Yolu --overwrite```
+
+dosya yolunuz boşluk içeriyor ise ```""``` içerisine alın yani ```sh lrclib.sh "/Müzik/Dosya/Müzik Yolu" --overwrite``` (formatlar mp3 ve flac olmalıdır)
+
+### English
+
+A standalone script has been added to fetch synchronized lyrics from lcrlib.net. This script operates independently of the plugin and is designed for Linux systems.
+
+Requirements:
+To run the script, make sure the following dependencies are installed: curl, jq, and find
+
+Track Filename Format:
+Your audio files should follow the naming convention:
+```'artist name' - 'track title'```
+For example: ```Ali Kınık - Ali Ayşeyi Seviyor```
+
+Usage:
+Grant the necessary execution permissions to the script.
+
+Run the command:
+
+```sh lrclib.sh /Path/To/Your/Music/Directory```
+
+This will recursively search all subdirectories and download matching lyrics.
+It prioritizes synchronized lyrics, and falls back to regular lyrics if none are available.
+
+To overwrite existing lyrics files, append the --overwrite flag:
+
+```sh lrclib.sh /Path/To/Your/Music/Directory --overwrite```
+
+If your file path contains spaces, enclose it in double quotes, e.g., sh lrclib.sh "/Path/To/Your/Music Path" --overwrite (Supported formats: mp3 and flac)
+
+</details>
