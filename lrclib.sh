@@ -47,7 +47,7 @@ while IFS= read -r -d '' file; do
         continue
     fi
 
-    filename=$(basename "$file" ".mp3")
+    filename=$(basename "$file")
     filename="${filename%.*}"
 
     echo -e "\nDosya: $file"
@@ -112,7 +112,7 @@ while IFS= read -r -d '' file; do
         ((FAILED++))
     fi
 
-done < <(find "$MUSIC_DIR" -type f -iname "*.mp3" -print0)
+done < <(find "$MUSIC_DIR" -type f \( -iname "*.mp3" -o -iname "*.flac" \) -print0)
 
 echo -e "\n----------------------------------------"
 echo "İşlem tamamlandı"
@@ -124,7 +124,7 @@ echo "Başarısız: $FAILED"
 
 if [ "$FAILED" -gt 0 ]; then
     echo -e "\nNot: Başarısız olanlar için:"
-    echo "1. Dosya adlarını 'Sanatçı - Şarkı.mp3' formatında düzenlemeyi deneyin"
+    echo "1. Dosya adlarını 'Sanatçı - Şarkı' formatında düzenlemeyi deneyin"
     echo "2. --overwrite parametresiyle mevcut LRC'lerin üzerine yazmayı deneyin"
-    echo "3. Şarkı sözlerini manuel olarak lrclib.net'ten arayabilirsiniz"
+    echo "3. Şarkı sözlerini manuel olarak lrclib.net üzerinden arayabilirsiniz"
 fi
