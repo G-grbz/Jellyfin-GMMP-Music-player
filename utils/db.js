@@ -1,9 +1,12 @@
+import { musicPlayerState } from "../core/state.js";
+
 export class MusicDB {
     constructor() {
-        this.dbName = 'JellyfinMusicDB';
-        this.dbVersion = 6;
+        this.dbName = 'GMMP-MusicDB';
+        this.dbVersion = 1;
         this.storeName = 'tracks';
         this.deletedStoreName = 'deletedTracks';
+        this.lyricsStoreName = 'lyrics';
         this.db = null;
     }
 
@@ -33,6 +36,18 @@ export class MusicDB {
 
                 if (!store.indexNames.contains('LastUpdated'))
                     store.createIndex('LastUpdated', 'LastUpdated', { unique: false });
+
+                if (!db.objectStoreNames.contains('lyrics')) {
+                    const lyricsStore = db.createObjectStore('lyrics', { keyPath: 'trackId' });
+                    lyricsStore.createIndex('trackId', 'trackId', { unique: true });
+                    lyricsStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains(this.lyricsStoreName)) {
+                    const lyricsStore = db.createObjectStore(this.lyricsStoreName, { keyPath: 'trackId' });
+                    lyricsStore.createIndex('trackId', 'trackId', { unique: true });
+                    lyricsStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+                }
 
                 if (!db.objectStoreNames.contains(this.deletedStoreName)) {
                     const deletedStore = db.createObjectStore(this.deletedStoreName, { keyPath: 'id', autoIncrement: true });
@@ -331,6 +346,101 @@ export class MusicDB {
     };
 }
 
+  async getLyrics(trackId) {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.lyricsStoreName], 'readonly');
+        const store = transaction.objectStore(this.lyricsStoreName);
+        const request = store.get(trackId);
+
+        request.onsuccess = () => resolve(request.result?.lyrics || null);
+        request.onerror = (event) => {
+            console.error('Şarkı sözleri alınırken hata:', event.target.error);
+            reject(event.target.error);
+        };
+    });
 }
 
+async saveLyrics(trackId, lyricsData) {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.lyricsStoreName], 'readwrite');
+        const store = transaction.objectStore(this.lyricsStoreName);
+
+        const lyrics = {
+            trackId,
+            lyrics: lyricsData,
+            lastUpdated: new Date().toISOString()
+        };
+
+        const request = store.put(lyrics);
+
+        request.onsuccess = () => resolve();
+        request.onerror = (event) => {
+            console.error('Şarkı sözleri kaydedilirken hata:', event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+async deleteLyrics(trackId) {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.lyricsStoreName], 'readwrite');
+        const store = transaction.objectStore(this.lyricsStoreName);
+        const request = store.delete(trackId);
+
+        request.onsuccess = () => resolve();
+        request.onerror = (event) => {
+            console.error('Şarkı sözleri silinirken hata:', event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+  async saveCustomLyrics(trackId, lyricsText) {
+    const lyricsData = {
+        text: lyricsText,
+        source: 'user',
+        addedAt: new Date().toISOString()
+    };
+
+    await this.saveLyrics(trackId, lyricsData);
+
+    if (musicPlayerState.currentTrack?.Id === trackId) {
+        musicPlayerState.lyricsCache[trackId] = lyricsData;
+        displayLyrics(lyricsText);
+            }
+        }
+
+        async getAllLyrics() {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.lyricsStoreName], 'readonly');
+        const store = transaction.objectStore(this.lyricsStoreName);
+        const request = store.getAll();
+
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = (event) => {
+            console.error('Şarkı sözleri alınırken hata:', event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+    async getLyricsCount() {
+            const db = await this.openDB();
+            return new Promise((resolve, reject) => {
+            const transaction = db.transaction([this.lyricsStoreName], 'readonly');
+            const store = transaction.objectStore(this.lyricsStoreName);
+            const request = store.count();
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => {
+                console.error('Şarkı sözü sayısı alınırken hata:', event.target.error);
+                reject(event.target.error);
+            };
+        });
+    }
+}
 export const musicDB = new MusicDB();

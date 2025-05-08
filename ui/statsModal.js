@@ -8,9 +8,38 @@ import { getConfig } from "../core/configLoader.js";
 import { musicDB } from "../utils/db.js";
 import { updateNextTracks } from "./playerUI.js";
 import { shuffleArray } from "../utils/domUtils.js";
+import { fetchLyrics } from "../lyrics/lyrics.js";
 
 const config = getConfig();
 const BATCH_SIZE = config.gruplimit;
+
+
+async function updateLyricsDatabase() {
+    try {
+        const tracks = await musicDB.getAllTracks();
+        let updatedCount = 0;
+        const originalPlaylist = musicPlayerState.playlist;
+        const originalIndex = musicPlayerState.currentIndex;
+
+        for (let i = 0; i < tracks.length; i++) {
+            const track = tracks[i];
+            musicPlayerState.playlist = [track];
+            musicPlayerState.currentIndex = 0;
+            delete musicPlayerState.lyricsCache[track.Id];
+            await fetchLyrics();
+            if (musicPlayerState.lyricsCache[track.Id]) {
+                updatedCount++;
+            }
+        }
+        musicPlayerState.playlist = originalPlaylist;
+        musicPlayerState.currentIndex = originalIndex;
+
+        showNotification(`${updatedCount} ${config.languageLabels.fetchLyrics || "şarkı sözü veri tabanına eklendi"}`, 3000, 'success');
+        await loadStatsIntoModal();
+    } catch (err) {
+        showNotification(config.languageLabels.fetchLyricsError || "Şarkı sözleri veri tabanına eklenemedi", 3000, 'error');
+    }
+}
 
 export function showStatsModal() {
     const existing = document.getElementById("music-stats-modal");
@@ -81,6 +110,12 @@ export function showStatsModal() {
         className: "stat-item",
         icon: '<i class="fa-solid fa-database"></i>',
         label: config.languageLabels.databaseSize || "Veritabanı Boyutu"
+    },
+    {
+        id: "stat-total-lyrics",
+        className: "stat-item",
+        icon: '<i class="fa-solid fa-align-left"></i>',
+        label: config.languageLabels.totalLyrics || "Kayıtlı Şarkı Sözü Sayısı"
     }
 ];
 
@@ -91,6 +126,22 @@ export function showStatsModal() {
         el.className = item.className;
         el.innerHTML = `${item.icon} ${item.label}: <span class="stat-value">...</span>`;
         modalBody.appendChild(el);
+    });
+
+    const lyricsStat = modalBody.querySelector('#stat-total-lyrics');
+    const fetchAllBtn = document.createElement('div');
+    fetchAllBtn.id = 'fetch-all-lyrics-btn';
+    fetchAllBtn.className = 'btn-icon';
+    fetchAllBtn.title = config.languageLabels.fetchAllLyrics || 'Tüm şarkı sözlerini veri tabanına ekle(bu işlem zaman alabilir)';
+    fetchAllBtn.innerHTML = '<i class="fa-solid fa-sync"></i>';
+    lyricsStat.appendChild(fetchAllBtn);
+    fetchAllBtn.addEventListener('click', () => {
+        fetchAllBtn.disabled = true;
+        fetchAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        updateLyricsDatabase().finally(() => {
+            fetchAllBtn.disabled = false;
+            fetchAllBtn.innerHTML = '<i class="fa-solid fa-sync"></i>';
+        });
     });
 
     const updatesSection = createStatSection(
@@ -291,40 +342,54 @@ export function showStatsModal() {
 });
 
     document.getElementById('clear-db-btn').addEventListener('click', async () => {
-    const confirmed = confirm(config.languageLabels.confirmClearDatabase || "Tüm veritabanını temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz!");
-    if (confirmed) {
-        try {
-            const db = await musicDB.openDB();
-            const transaction = db.transaction(['tracks', 'deletedTracks'], 'readwrite');
-            const tracksStore = transaction.objectStore('tracks');
-            await new Promise((resolve, reject) => {
-                const clearTracksRequest = tracksStore.clear();
-                clearTracksRequest.onsuccess = resolve;
-                clearTracksRequest.onerror = reject;
-            });
-            const deletedStore = transaction.objectStore('deletedTracks');
-            await new Promise((resolve, reject) => {
-                const clearDeletedRequest = deletedStore.clear();
-                clearDeletedRequest.onsuccess = resolve;
-                clearDeletedRequest.onerror = reject;
-            });
+  const confirmed = confirm(config.languageLabels.confirmClearDatabase || "Tüm veritabanını temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz!");
+  if (!confirmed) return;
 
-            showNotification(
-                config.languageLabels.databaseCleared || "Veritabanı başarıyla temizlendi",
-                3000,
-                'success'
-            );
-            await loadStatsIntoModal();
-        } catch (error) {
-            console.error('Veritabanı temizlenirken hata:', error);
-            showNotification(
-                config.languageLabels.clearDatabaseError || "Veritabanı temizlenirken hata oluştu",
-                3000,
-                'error'
-                );
-            }
-        }
+  try {
+    const db = await musicDB.openDB();
+    const transaction = db.transaction(
+      ['tracks', 'deletedTracks', 'lyrics'],
+      'readwrite'
+    );
+
+    const tracksStore = transaction.objectStore('tracks');
+    await new Promise((resolve, reject) => {
+      const req = tracksStore.clear();
+      req.onsuccess = resolve;
+      req.onerror = reject;
     });
+
+    const deletedStore = transaction.objectStore('deletedTracks');
+    await new Promise((resolve, reject) => {
+      const req = deletedStore.clear();
+      req.onsuccess = resolve;
+      req.onerror = reject;
+    });
+
+    const lyricsStore = transaction.objectStore('lyrics');
+    await new Promise((resolve, reject) => {
+      const req = lyricsStore.clear();
+      req.onsuccess = resolve;
+      req.onerror = reject;
+    });
+
+    showNotification(
+      config.languageLabels.databaseCleared || "Veritabanı başarıyla temizlendi",
+      3000,
+      'success'
+    );
+
+    await loadStatsIntoModal();
+
+  } catch (error) {
+    console.error('Veritabanı temizlenirken hata:', error);
+    showNotification(
+      config.languageLabels.clearDatabaseError || "Veritabanı temizlenirken hata oluştu",
+      3000,
+      'error'
+    );
+  }
+});
     loadStatsIntoModal();
 }
 
@@ -337,10 +402,11 @@ async function backupDatabase() {
     backupBtn.disabled = true;
 
     try {
-        const [allTracks, stats, recentlyDeleted] = await Promise.all([
+        const [allTracks, stats, recentlyDeleted, allLyrics] = await Promise.all([
             musicDB.getAllTracks(),
             musicDB.getStats(),
-            musicDB.getRecentlyDeleted()
+            musicDB.getRecentlyDeleted(),
+            musicDB.getAllLyrics()
         ]);
 
         const backupData = {
@@ -349,10 +415,12 @@ async function backupDatabase() {
                 createdAt: new Date().toISOString(),
                 totalTracks: stats.totalTracks,
                 totalAlbums: stats.totalAlbums,
-                totalArtists: stats.totalArtists
+                totalArtists: stats.totalArtists,
+                totalLyrics: allLyrics.length
             },
             tracks: allTracks,
-            deletedTracks: recentlyDeleted
+            deletedTracks: recentlyDeleted,
+            lyrics: allLyrics
         };
 
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -477,6 +545,31 @@ async function handleRestoreFile(event) {
             }
         }
 
+        if (backupData.lyrics && Array.isArray(backupData.lyrics)) {
+            updateProgress(85, config.languageLabels.restoringLyrics || "Şarkı sözleri geri yükleniyor...");
+            const db = await musicDB.openDB();
+            const transaction = db.transaction(['lyrics'], 'readwrite');
+            const store = transaction.objectStore('lyrics');
+
+            await new Promise((resolve, reject) => {
+                const clearRequest = store.clear();
+                clearRequest.onsuccess = resolve;
+                clearRequest.onerror = reject;
+            });
+
+            for (const lyric of backupData.lyrics) {
+                store.put(lyric);
+            }
+
+            await new Promise((resolve) => {
+                transaction.oncomplete = resolve;
+                transaction.onerror = () => {
+                    console.warn('Şarkı sözleri eklenirken hata oluştu');
+                    resolve();
+                };
+            });
+        }
+
         updateProgress(100, config.languageLabels.restoreComplete || "Geri yükleme tamamlandı!");
         showNotification(config.languageLabels.restoreSuccess || "Veritabanı başarıyla geri yüklendi", 3000, 'success');
         await loadStatsIntoModal();
@@ -535,16 +628,18 @@ function createStatSection(title, listId, buttonId, buttonText) {
 
 async function loadStatsIntoModal() {
     try {
-        const [stats, recentlyDeleted, dbSize] = await Promise.all([
+        const [stats, recentlyDeleted, dbSize, lyricsCount] = await Promise.all([
             musicDB.getStats(),
             musicDB.getRecentlyDeleted(),
-            getDatabaseSize()
+            getDatabaseSize(),
+            musicDB.getLyricsCount()
         ]);
 
         document.querySelector("#stat-total-tracks .stat-value").textContent = stats.totalTracks;
         document.querySelector("#stat-total-albums .stat-value").textContent = stats.totalAlbums;
         document.querySelector("#stat-total-artists .stat-value").textContent = stats.totalArtists;
         document.querySelector("#stat-db-size .stat-value").textContent = dbSize;
+        document.querySelector("#stat-total-lyrics .stat-value").textContent = lyricsCount;
 
         await loadRecentItems(
             stats.recentlyUpdated,
@@ -570,10 +665,11 @@ async function loadStatsIntoModal() {
 
 async function getDatabaseSize() {
     try {
-        const [allTracks, stats, recentlyDeleted] = await Promise.all([
+        const [allTracks, stats, recentlyDeleted, allLyrics] = await Promise.all([
             musicDB.getAllTracks(),
             musicDB.getStats(),
-            musicDB.getRecentlyDeleted()
+            musicDB.getRecentlyDeleted(),
+            musicDB.getAllLyrics()
         ]);
 
         const sizeObject = {
@@ -582,10 +678,12 @@ async function getDatabaseSize() {
                 createdAt: new Date().toISOString(),
                 totalTracks: stats.totalTracks,
                 totalAlbums: stats.totalAlbums,
-                totalArtists: stats.totalArtists
+                totalArtists: stats.totalArtists,
+                totalLyrics: allLyrics.length
             },
             tracks: allTracks,
-            deletedTracks: recentlyDeleted
+            deletedTracks: recentlyDeleted,
+            lyrics: allLyrics
         };
 
         const jsonString = JSON.stringify(sizeObject);
@@ -603,7 +701,7 @@ async function getDatabaseSize() {
 async function calculateApproximateSize(resolve) {
     try {
         const db = await musicDB.openDB();
-        const transaction = db.transaction(['tracks', 'deletedTracks'], 'readonly');
+        const transaction = db.transaction(['tracks', 'deletedTracks', 'lyrics'], 'readonly');
 
         const getStoreDataSize = async (storeName) => {
             return new Promise((res) => {
@@ -626,12 +724,13 @@ async function calculateApproximateSize(resolve) {
             });
         };
 
-        const [tracksSize, deletedSize] = await Promise.all([
+        const [tracksSize, deletedSize, lyricsSize] = await Promise.all([
             getStoreDataSize('tracks'),
             getStoreDataSize('deletedTracks'),
+            getStoreDataSize('lyrics')
         ]);
 
-        const totalBytes = tracksSize + deletedSize;
+        const totalBytes = tracksSize + deletedSize + lyricsSize;
         const approxSizeMB = totalBytes / (1024 * 1024);
 
         resolve(`${approxSizeMB.toFixed(2)} MB ${config.languageLabels.approxSizeSuffix}`);
@@ -646,7 +745,7 @@ async function loadRecentItems(items, containerId, sectionTitle, formatter) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
 
-   if (items.length === 0) {
+    if (items.length === 0) {
     container.innerHTML = `<div class="no-items">${config.languageLabels.noData}</div>`;
     return;
 }
@@ -680,7 +779,6 @@ function formatTrackInfo(track, customDate = null) {
         </div>
     `;
 }
-
 
 function showDetailedList(title, items, formatter) {
     const modal = document.getElementById('detailed-list-modal');

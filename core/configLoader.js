@@ -6,6 +6,7 @@ const defaultConfig = {
   albumlimit: 20,
   sarkilimit: 200,
   gruplimit: 200,
+  id3limit: 10,
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -20,7 +21,8 @@ export function getConfig() {
     muziklimit: parseInt(localStorage.getItem('muziklimit'), 10) || defaultConfig.muziklimit,
     albumlimit: parseInt(localStorage.getItem('albumlimit'), 10) || defaultConfig.albumlimit,
     sarkilimit: parseInt(localStorage.getItem('sarkilimit'), 10) || defaultConfig.sarkilimit,
-    gruplimit: parseInt(localStorage.getItem('gruplimit'), 10) || defaultConfig.gruplimit
+    gruplimit: parseInt(localStorage.getItem('gruplimit'), 10) || defaultConfig.gruplimit,
+    id3limit: parseInt(localStorage.getItem('id3limit'), 10) || defaultConfig.id3limit,
   };
 }
 
@@ -43,6 +45,10 @@ export function updateConfig(newConfig) {
 
   if (newConfig.gruplimit !== undefined) {
     localStorage.setItem('gruplimit', newConfig.gruplimit);
+  }
+
+  if (newConfig.id3limit !== undefined) {
+    localStorage.setItem('id3limit', newConfig.id3limit);
   }
 
   if (newConfig.defaultLanguage !== undefined) {

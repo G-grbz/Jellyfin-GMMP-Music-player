@@ -1,10 +1,68 @@
 import { musicPlayerState } from "../core/state.js";
 import { getConfig } from "../core/configLoader.js";
 import { getFromOfflineCache, cacheForOffline } from "../core/offlineCache.js";
-import { readID3Tags } from "./id3Reader.js";
+import { readID3Tags, parseID3Tags } from "./id3Reader.js";
 import { getAuthToken } from "../core/auth.js";
+import { musicDB } from "../utils/db.js";
 
 const config = getConfig();
+
+export async function fetchLyrics() {
+  const currentTrack = musicPlayerState.playlist[musicPlayerState.currentIndex];
+  if (!currentTrack) return;
+
+  if (musicPlayerState.lyricsCache[currentTrack.Id]) {
+    displayLyrics(musicPlayerState.lyricsCache[currentTrack.Id]);
+    return;
+  }
+
+  const dbLyrics = await musicDB.getLyrics(currentTrack.Id);
+  if (dbLyrics) {
+    displayLyrics(dbLyrics);
+    musicPlayerState.lyricsCache[currentTrack.Id] = dbLyrics;
+    return;
+  }
+
+  musicPlayerState.lyricsContainer.innerHTML = `<div class='lyrics-loading'>${config.languageLabels.loadingLyrics}</div>`;
+  musicPlayerState.currentLyrics = [];
+
+  const token = getAuthToken();
+  const endpoints = [
+    `/Audio/${currentTrack.Id}/Lyrics`,
+    `/Items/${currentTrack.Id}/Lyrics`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(`${window.location.origin}${endpoint}`, {
+        headers: { "X-Emby-Token": token }
+      });
+
+      if (res.ok) {
+        const data = endpoint.includes('Items') ? await res.json() : await res.text();
+        const lyrics = typeof data === 'string' ? data : data.Lyrics;
+        if (lyrics && lyrics.length > 0) {
+          displayLyrics(lyrics);
+          musicPlayerState.lyricsCache[currentTrack.Id] = lyrics;
+          await musicDB.saveLyrics(currentTrack.Id, lyrics);
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
+  try {
+    const embeddedLyrics = await getEmbeddedLyrics(currentTrack.Id);
+    if (embeddedLyrics?.trim()) {
+      displayLyrics(embeddedLyrics);
+      musicPlayerState.lyricsCache[currentTrack.Id] = embeddedLyrics;
+      await musicDB.saveLyrics(currentTrack.Id, embeddedLyrics);
+      return;
+    }
+  } catch (_) {}
+
+  showNoLyricsMessage();
+}
 
 export async function getEmbeddedLyrics(trackId) {
   try {
@@ -17,259 +75,288 @@ export async function getEmbeddedLyrics(trackId) {
       headers: { "X-Emby-Token": token }
     });
 
-    if (!response.ok) throw new Error("Müzik dosyası alınamadı");
+    if (!response.ok) throw new Error("Stream alınamadı");
 
-    const arrayBuffer = await response.arrayBuffer();
-    const lyrics = await parseID3Tags(arrayBuffer);
-
-    if (lyrics) {
-      musicPlayerState.lyricsCache[trackId] = lyrics;
-      return lyrics;
-    }
-    return null;
+    const buffer = await response.arrayBuffer();
+    const lyrics = await parseID3Tags(buffer);
+    if (lyrics) musicPlayerState.lyricsCache[trackId] = lyrics;
+    return lyrics || null;
   } catch (err) {
-    console.error("Gömülü sözler okunamadı:", err);
+    console.warn("Gömülü söz alınamadı:", err);
     return null;
   }
 }
 
-export  async function parseID3Tags(arrayBuffer) {
-  try {
-    if (!window.jsmediatags) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
+export function displayLyrics(data) {
+  musicPlayerState.currentLyrics = [];
+  musicPlayerState.lyricsContainer.innerHTML = "";
+
+  if (typeof data === 'string' && data.trim().startsWith('{')) {
+    try {
+      data = JSON.parse(data);
+    } catch (_) {}
+  }
+
+  if (typeof data === 'object' && Array.isArray(data.Lyrics)) {
+    renderStructuredLyrics(data.Lyrics);
+  } else if (typeof data === 'string') {
+    if (data.includes('[')) {
+      renderTimedTextLyrics(data);
+    } else {
+      renderPlainText(data);
     }
+  }
 
-    return new Promise((resolve) => {
-      window.jsmediatags.read(new Blob([arrayBuffer]), {
-        onSuccess: function(tag) {
-  console.log("Taglar:", tag.tags);
-
-  const usltLyrics = tag.tags.USLT?.data?.lyrics;
-  const customLyrics = tag.tags.lyrics?.lyrics;
-  const lyricsText = usltLyrics || customLyrics || null;
-
-  resolve(lyricsText);
-}
+  const firstTextEl = musicPlayerState.lyricsContainer.querySelector('.lyrics-text');
+  if (firstTextEl) {
+    const existingBtn = firstTextEl.querySelector('.update-lyrics-btn');
+    if (!existingBtn) {
+      const btn = document.createElement('span');
+      btn.className = 'update-lyrics-btn';
+      btn.title = config.languageLabels.updateLyrics || 'Şarkı sözünü güncelle';
+      btn.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', () => {
+        const track = musicPlayerState.playlist[musicPlayerState.currentIndex];
+        if (track) updateSingleTrackLyrics(track.Id);
       });
-    });
-  } catch (err) {
-    console.error("ID3 kütüphanesi yüklenirken hata:", err);
-    return null;
+      const container = firstTextEl.parentElement;
+      if (container) container.style.position = 'relative';
+      firstTextEl.appendChild(btn);
+    }
   }
 }
 
-export async function fetchLyrics() {
-    const currentTrack = musicPlayerState.playlist[musicPlayerState.currentIndex];
-    if (!currentTrack) return;
+function renderStructuredLyrics(lyricsArray) {
+  const lines = [];
 
-    musicPlayerState.lyricsContainer.innerHTML = `<div class='lyrics-loading'>${config.languageLabels.loadingLyrics}</div>`;
-    musicPlayerState.currentLyrics = [];
+  lyricsArray.forEach(line => {
+    const text = line.Text?.trim();
+    if (!text) return;
 
-    const token = getAuthToken();
-    try {
-        const localFileResponse = await fetch(`${window.location.origin}/Audio/${currentTrack.Id}/Lyrics`, {
-            headers: { "X-Emby-Token": token }
-        });
+    const time = line.Start ? line.Start / 10000000 : null;
 
-        if (localFileResponse.ok) {
-            const localText = await localFileResponse.text();
+    const container = document.createElement("div");
+    container.className = "lyrics-line-container";
 
-            if (localText && localText.trim()) {
-                displayLyrics(localText);
-                musicPlayerState.lyricsCache[currentTrack.Id] = localText;
-                return;
-            }
-        }
-    } catch (err) {
-        console.warn("Yerel şarkı sözü bulunmadı:", err);
+    const textEl = document.createElement("div");
+    textEl.className = "lyrics-text";
+    textEl.textContent = text;
+
+    if (time != null) {
+      const timeEl = document.createElement("span");
+      timeEl.className = "lyrics-time";
+      const m = Math.floor(time / 60);
+      const s = Math.floor(time % 60).toString().padStart(2, '0');
+      timeEl.textContent = `${m}:${s}`;
+      container.appendChild(timeEl);
     }
 
-    try {
-        const metadataResponse = await fetch(`${window.location.origin}/Items/${currentTrack.Id}/Lyrics`, {
-            headers: { "X-Emby-Token": token }
-        });
+    container.appendChild(textEl);
+    musicPlayerState.lyricsContainer.appendChild(container);
 
-        if (metadataResponse.ok) {
-            const data = await metadataResponse.json();
-            if (data.Lyrics && data.Lyrics.length > 0) {
-                displayLyrics(data.Lyrics);
-                musicPlayerState.lyricsCache[currentTrack.Id] = data.Lyrics;
-                return;
-            }
-        }
-    } catch (err) {
-        console.warn("Metadata sözleri okunamadı:", err);
+    if (time != null) {
+      lines.push({ time, element: container });
     }
+  });
 
-    try {
-        const embeddedLyrics = await getEmbeddedLyrics(currentTrack.Id);
-        if (embeddedLyrics && embeddedLyrics.trim()) {
-            displayLyrics(embeddedLyrics);
-            musicPlayerState.lyricsCache[currentTrack.Id] = embeddedLyrics;
-            return;
-        }
-    } catch (err) {
-        console.warn("Gömülü ID3 sözleri okunamadı:", err);
-    }
-
-    showNoLyricsMessage();
+  musicPlayerState.currentLyrics = lines;
+  musicPlayerState.syncedLyrics.lines = lines;
+  musicPlayerState.syncedLyrics.currentLine = -1;
 }
 
-
-export function displayLyrics(lyricsData) {
-  try {
-    musicPlayerState.currentLyrics = [];
-    musicPlayerState.lyricsContainer.innerHTML = "";
-
-    if (typeof lyricsData === 'string' && lyricsData.trim().startsWith('{')) {
-      try {
-        lyricsData = JSON.parse(lyricsData);
-      } catch (e) {
-        console.warn("Lyrics JSON parse hatası:", e);
-      }
-    }
-
-    if (typeof lyricsData === 'object' && lyricsData.Lyrics && Array.isArray(lyricsData.Lyrics)) {
-      lyricsData.Lyrics.forEach(line => {
-        if (line.Text && line.Text.trim()) {
-          const lineContainer = document.createElement("div");
-          lineContainer.className = "lyrics-line-container";
-
-          const textDisplay = document.createElement("div");
-          textDisplay.className = "lyrics-text";
-          textDisplay.textContent = line.Text.trim();
-
-          lineContainer.appendChild(textDisplay);
-          musicPlayerState.lyricsContainer.appendChild(lineContainer);
-        }
-      });
-      return;
-    }
-
-    if (Array.isArray(lyricsData) && lyricsData.every(line => typeof line.Text === "string")) {
-      lyricsData.forEach(line => {
-        if (line.Text && line.Text.trim()) {
-          const lineContainer = document.createElement("div");
-          lineContainer.className = "lyrics-line-container";
-
-          const textDisplay = document.createElement("div");
-          textDisplay.className = "lyrics-text";
-          textDisplay.textContent = line.Text.trim();
-
-          lineContainer.appendChild(textDisplay);
-          musicPlayerState.lyricsContainer.appendChild(lineContainer);
-        }
-      });
-      return;
-    }
-
-    if (typeof lyricsData === 'string' && lyricsData.match(/\[\d{2}:\d{2}\.\d{2}\]/)) {
-      const lines = lyricsData.split('\n');
-      const lyricsWithTime = [];
-
-      lines.forEach(line => {
-        const timeMatches = line.match(/\[(\d{2}):(\d{2})\.(\d{2})\]/g);
-        if (timeMatches) {
-          const text = line.replace(/\[\d{2}:\d{2}\.\d{2}\]/g, '').trim();
-
-          if (text) {
-            timeMatches.forEach(timeTag => {
-              const timeMatch = timeTag.match(/\[(\d{2}):(\d{2})\.(\d{2})\]/);
-              if (timeMatch) {
-                const minutes = parseInt(timeMatch[1]);
-                const seconds = parseInt(timeMatch[2]);
-                const time = minutes * 60 + seconds;
-
-                const lineContainer = document.createElement("div");
-                lineContainer.className = "lyrics-line-container";
-
-                const timeDisplay = document.createElement("span");
-                timeDisplay.className = "lyrics-time";
-                timeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-                const textDisplay = document.createElement("div");
-                textDisplay.className = "lyrics-text";
-                textDisplay.innerHTML = text.split('').map(char =>
-                  `<span class="lyrics-char">${char}</span>`
-                ).join('');
-
-                lineContainer.appendChild(timeDisplay);
-                lineContainer.appendChild(textDisplay);
-                musicPlayerState.lyricsContainer.appendChild(lineContainer);
-                lyricsWithTime.push({
-                  time,
-                  element: textDisplay,
-                  chars: Array.from(textDisplay.querySelectorAll('.lyrics-char'))
-                });
-              }
-            });
-          }
-        } else if (line.trim()) {
-          const lineContainer = document.createElement("div");
-          lineContainer.className = "lyrics-line-container";
-
-          const textDisplay = document.createElement("div");
-          textDisplay.className = "lyrics-text";
-          textDisplay.textContent = line.trim();
-
-          lineContainer.appendChild(textDisplay);
-          musicPlayerState.lyricsContainer.appendChild(lineContainer);
-        }
-      });
-
-      musicPlayerState.currentLyrics = lyricsWithTime.sort((a, b) => a.time - b.time);
-    } else if (typeof lyricsData === "string") {
-      const div = document.createElement("div");
-      div.className = "lyrics-plain";
-      div.textContent = lyricsData;
-      musicPlayerState.lyricsContainer.appendChild(div);
-    }
-  } catch (err) {
-    console.error("Sözler gösterilirken hata:", err);
-    showLyricsError("Sözler işlenirken hata oluştu");
-  }
+function createKaraokeWords(text) {
+  const words = text.trim().split(/\s+/);
+  return words.map(word => {
+    const span = document.createElement("span");
+    span.className = "karaoke-word";
+    span.textContent = word + " ";
+    return span;
+  });
 }
 
+function renderTimedTextLyrics(text) {
+  const lines = [];
+  const regex = /\[(\d{2}):(\d{2})\.(\d{2})\](.*)/;
+
+  text.split('\n').forEach(raw => {
+    const match = raw.match(regex);
+    if (match) {
+      const [, m, s, , content] = match;
+      const time = parseInt(m) * 60 + parseInt(s);
+      const container = document.createElement("div");
+      container.className = "lyrics-line-container";
+
+      const timeEl = document.createElement("span");
+      timeEl.className = "lyrics-time";
+      timeEl.textContent = `${m}:${s}`;
+      container.appendChild(timeEl);
+
+      const textEl = document.createElement("div");
+      textEl.className = "lyrics-text";
+      createKaraokeWords(content.trim()).forEach(span => textEl.appendChild(span));
+      container.appendChild(textEl);
+
+      musicPlayerState.lyricsContainer.appendChild(container);
+      lines.push({ time, element: container });
+    } else if (raw.trim()) {
+      renderPlainLine(raw.trim());
+    }
+  });
+
+  musicPlayerState.currentLyrics = lines;
+  musicPlayerState.syncedLyrics.lines = lines;
+  musicPlayerState.syncedLyrics.currentLine = -1;
+}
+
+function renderPlainText(text) {
+  text.split('\n').forEach(line => renderPlainLine(line));
+}
+
+function renderPlainLine(line) {
+  const container = document.createElement("div");
+  container.className = "lyrics-line-container";
+  const textEl = document.createElement("div");
+  textEl.className = "lyrics-text";
+  textEl.textContent = line;
+  container.appendChild(textEl);
+  musicPlayerState.lyricsContainer.appendChild(container);
+}
 
 export function toggleLyrics() {
   musicPlayerState.lyricsActive = !musicPlayerState.lyricsActive;
-
+  const el = musicPlayerState.lyricsContainer;
   if (musicPlayerState.lyricsActive) {
-    musicPlayerState.lyricsContainer.classList.remove("lyrics-hidden");
-    musicPlayerState.lyricsContainer.classList.add("lyrics-visible");
+    el.classList.add("lyrics-visible");
+    el.classList.remove("lyrics-hidden");
     musicPlayerState.lyricsBtn.innerHTML = '<i class="fas fa-align-left" style="color:#e91e63"></i>';
     fetchLyrics();
   } else {
-    musicPlayerState.lyricsContainer.classList.remove("lyrics-visible");
-    musicPlayerState.lyricsContainer.classList.add("lyrics-hidden");
+    el.classList.remove("lyrics-visible");
+    el.classList.add("lyrics-hidden");
     musicPlayerState.lyricsBtn.innerHTML = '<i class="fas fa-align-left"></i>';
   }
 }
 
 export function showNoLyricsMessage() {
-    musicPlayerState.lyricsContainer.innerHTML = `<div class='lyrics-not-found'>${config.languageLabels.noLyricsFound}</div>`;
+  musicPlayerState.lyricsContainer.innerHTML = `<div class='lyrics-not-found'>${config.languageLabels.noLyricsFound}</div>`;
+}
+
+export function showLyricsError(msg) {
+  musicPlayerState.lyricsContainer.innerHTML = `<div class='lyrics-error'>${config.languageLabels.lyricsError}: ${msg}</div>`;
+}
+
+export function updateSyncedLyrics(currentTime) {
+  const lines = musicPlayerState.currentLyrics;
+  const container = musicPlayerState.lyricsContainer;
+  if (!lines?.length) return;
+
+  const offset = currentTime + 0.5;
+  if (offset < lines[0].time) {
+    container.scrollTop = 0;
+    return;
   }
 
-export function showLyricsError(message) {
-    musicPlayerState.lyricsContainer.innerHTML = `<div class='lyrics-error'>${config.languageLabels.lyricsError}: ${message}</div>`;
+  const idx = lines.findIndex((l, i) => l.time <= offset && (!lines[i + 1] || lines[i + 1].time > offset));
+
+  if (idx !== musicPlayerState.syncedLyrics.currentLine) {
+    musicPlayerState.syncedLyrics.currentLine = idx;
+    highlightLine(idx);
   }
 
-  export function updateSyncedLyrics(currentTime) {
-  const { syncedLyrics } = musicPlayerState;
-  if (!syncedLyrics.lines.length) return;
+  const activeLine = lines[idx];
+  if (activeLine) {
+    const elapsed = offset - activeLine.time;
+    const nextTime = (lines[idx + 1]?.time) || (activeLine.time + 5);
+    const duration = nextTime - activeLine.time;
 
-  const index = syncedLyrics.lines.findIndex((line, i, arr) => {
-    return i === arr.length - 1 || arr[i + 1].time > currentTime;
+    const textEl = activeLine.element.querySelector(".lyrics-text");
+    const words = textEl?.querySelectorAll(".karaoke-word");
+    if (!words) return;
+
+    const wordsToHighlight = Math.floor((elapsed / duration) * words.length);
+    words.forEach((w, i) => {
+      if (i <= wordsToHighlight) w.classList.add("active");
+      else w.classList.remove("active");
+    });
+  }
+}
+
+function highlightLine(idx) {
+  const lines = musicPlayerState.currentLyrics;
+
+  lines.forEach((line, i) => {
+    const el = line.element;
+    if (i === idx) {
+      el.classList.add("lyrics-active");
+      smoothScrollIntoView(el);
+    } else {
+      el.classList.remove("lyrics-active");
+    }
   });
+}
 
-  if (index !== syncedLyrics.currentLine) {
-    syncedLyrics.currentLine = index;
-    renderSyncedLyrics();
+function smoothScrollIntoView(element) {
+  const parent = musicPlayerState.lyricsContainer;
+  const containerHeight = parent.clientHeight;
+  const elementTop = element.offsetTop;
+  const elementHeight = element.offsetHeight;
+  const scrollPosition = elementTop - (containerHeight - elementHeight);
+
+  parent.style.scrollBehavior = 'smooth';
+  parent.scrollTop = Math.max(scrollPosition, 0);
+
+  setTimeout(() => {
+    parent.style.scrollBehavior = 'auto';
+  }, 500);
+}
+
+export function startLyricsSync() {
+  if (musicPlayerState.audio && !musicPlayerState._lyricsEndListenerAdded) {
+    musicPlayerState.audio.addEventListener('ended', () => {
+      const container = musicPlayerState.lyricsContainer;
+      container.scrollTop = 0;
+      musicPlayerState.currentLyrics.forEach(line => {
+        line.element.classList.remove('lyrics-active');
+        line.element.querySelectorAll('.active').forEach(w => w.classList.remove('active'));
+      });
+    });
+    musicPlayerState._lyricsEndListenerAdded = true;
   }
+
+  function frame() {
+    if (!musicPlayerState.audio) return;
+    updateSyncedLyrics(musicPlayerState.audio.currentTime);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+async function updateSingleTrackLyrics(trackId) {
+    try {
+        delete musicPlayerState.lyricsCache[trackId];
+        await musicDB.deleteLyrics(trackId);
+        const track = musicPlayerState.playlist.find(t => t.Id === trackId);
+        if (track) {
+            const originalIndex = musicPlayerState.currentIndex;
+            const originalPlaylist = [...musicPlayerState.playlist];
+
+            musicPlayerState.playlist = [track];
+            musicPlayerState.currentIndex = 0;
+
+            await fetchLyrics();
+
+            musicPlayerState.playlist = originalPlaylist;
+            musicPlayerState.currentIndex = originalIndex;
+
+            if (musicPlayerState.lyricsCache[trackId]) {
+                showNotification(config.languageLabels.syncSingle || "Şarkı sözü güncellendi", 3000, 'success');
+                return true;
+            }
+        }
+    } catch (err) {
+        console.error('Şarkı sözü güncelleme hatası:', err);
+        showNotification(config.languageLabels.syncSingleError || "Şarkı sözü güncelleme başarısız!", 3000, 'error');
+    }
+    return false;
 }

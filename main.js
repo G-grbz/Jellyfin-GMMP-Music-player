@@ -2,6 +2,7 @@ import { initPlayer, togglePlayerVisibility, isPlayerInitialized } from "./utils
 import { refreshPlaylist } from "./core/playlist.js";
 import { updateProgress, updateDuration } from "./player/progress.js";
 import { checkForNewMusic } from "./ui/artistModal.js";
+import { loadJSMediaTags } from "./lyrics/id3Reader.js";
 
 function waitForElement(selector, timeout = 5000) {
   return new Promise((resolve, reject) => {
@@ -52,6 +53,9 @@ function createPlayerButton() {
 async function onToggleClick() {
   try {
     if (!isPlayerInitialized()) {
+      await loadJSMediaTags();
+      checkForNewMusic();
+
       await initPlayer();
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -74,7 +78,6 @@ async function onToggleClick() {
 export async function addPlayerButton() {
   try {
     loadCSS();
-
     const header = await waitForElement(".headerRight");
     if (document.getElementById("jellyfinPlayerToggle")) return;
 
@@ -91,4 +94,3 @@ if (document.readyState === "loading") {
 } else {
   addPlayerButton();
 }
-

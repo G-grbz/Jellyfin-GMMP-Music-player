@@ -100,11 +100,27 @@ export function createSettingsModal() {
 
     groupLimitContainer.append(gruplimitLabel, limitGrup);
 
+    const id3LimitContainer = document.createElement('div');
+    id3LimitContainer.className = 'setting-item';
+
+    const id3limitLabel = document.createElement('label');
+    id3limitLabel.textContent = labels.id3limit || 'ID3Tags Limiti';
+    id3limitLabel.title = labels.id3limitTitle || 'Id3 etiket sorgulamanın eş zamanlı olarak kaç tane yapılacağı belirleyen değer';
+
+    const limitId3 = document.createElement('input');
+    limitId3.type = 'number';
+    limitId3.value = config.id3limit || 10;
+    limitId3.title = labels.id3limitTitle || 'Id3 etiket sorgulamanın eş zamanlı olarak kaç tane yapılacağı belirleyen değer';
+    limitId3.name = 'id3limit';
+
+    id3LimitContainer.append(id3limitLabel, limitId3);
+
     limitDiv.append(
         musicLimitContainer,
         songLimitContainer,
         albumLimitContainer,
-        groupLimitContainer
+        groupLimitContainer,
+        id3LimitContainer
     );
 
     const btnDiv = document.createElement('div');
@@ -138,6 +154,7 @@ function applySettings(reload = false) {
         albumlimit: parseInt(formData.get('albumlimit')),
         sarkilimit: parseInt(formData.get('sarkilimit')),
         gruplimit: parseInt(formData.get('gruplimit')),
+        id3limit: parseInt(formData.get('id3limit')),
     };
     updateConfig(updatedConfig);
     modal.style.display = 'none';

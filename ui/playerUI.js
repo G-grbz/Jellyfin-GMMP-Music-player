@@ -5,7 +5,6 @@ import { togglePlayPause, playPrevious, playNext, playTrack } from "../player/pl
 import { updateProgress, setupProgressControls } from "../player/progress.js";
 import { toggleLyrics } from "../lyrics/lyrics.js";
 import { toggleMute, changeVolume, toggleRepeatMode, toggleShuffle } from "./controls.js";
-import { showNotification } from "./notification.js";
 import { refreshPlaylist } from "../core/playlist.js";
 import { initSettings } from '../core/settings.js';
 import { showJellyfinPlaylistsModal } from '../core/jellyfinPlaylists.js';
@@ -251,47 +250,50 @@ export async function updateNextTracks() {
   const maxNextTracks = 3;
   let tracksLoaded = 0;
 
+  if (!musicPlayerState.id3ImageCache) musicPlayerState.id3ImageCache = {};
+
   for (let i = 1; i <= maxNextTracks; i++) {
     const nextIndex = (currentIndex + i) % playlist.length;
     const track = playlist[nextIndex];
     if (!track) continue;
 
-    const trackElement = document.createElement("div");
-    trackElement.className = "next-track-item hidden";
+    const trackElement = document.createElement('div');
+    trackElement.className = 'next-track-item hidden';
     trackElement.title = track.Name || config.languageLabels.unknownTrack;
 
-    const coverElement = document.createElement("div");
-    coverElement.className = "next-track-cover";
+    const coverElement = document.createElement('div');
+    coverElement.className = 'next-track-cover';
     coverElement.style.backgroundImage = DEFAULT_ARTWORK;
 
-    try {
-      const tags = await readID3Tags(track.Id);
-      if (tags?.picture) {
-        const base64Image = arrayBufferToBase64(tags.picture.data);
-        coverElement.style.backgroundImage = `url(data:${tags.picture.format};base64,${base64Image})`;
-      } else {
-        const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
-        if (imageTag) {
-          const imageId = track.AlbumId || track.Id;
-          coverElement.style.backgroundImage = `url('${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}')`;
+    const trackId = track.Id;
+    if (musicPlayerState.id3ImageCache[trackId]) {
+      coverElement.style.backgroundImage = `url('${musicPlayerState.id3ImageCache[trackId]}')`;
+    } else {
+      try {
+        const tags = await readID3Tags(trackId);
+        if (tags?.pictureUri) {
+          musicPlayerState.id3ImageCache[trackId] = tags.pictureUri;
+          coverElement.style.backgroundImage = `url('${tags.pictureUri}')`;
+        } else {
+          const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
+          if (imageTag) {
+            const imageId = track.AlbumId || trackId;
+            coverElement.style.backgroundImage =
+              `url('${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}')`;
+          }
         }
+      } catch (e) {
+        console.error('Kapak resmi yüklenirken hata:', e);
       }
-    } catch (err) {
-      console.error("Kapak resmi yüklenirken hata:", err);
     }
 
-    coverElement.onclick = e => {
-      e.stopPropagation();
-      playTrack(nextIndex);
-    };
+    coverElement.onclick = e => { e.stopPropagation(); playTrack(nextIndex); };
 
-    const titleElement = document.createElement("div");
-    titleElement.className = "next-track-title";
+    const titleElement = document.createElement('div');
+    titleElement.className = 'next-track-title';
     titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
-    titleElement.onclick = e => {
-      e.stopPropagation();
-      playTrack(nextIndex);
-    };
+    titleElement.onclick = e => { e.stopPropagation(); playTrack(nextIndex); };
+
     trackElement.append(coverElement, titleElement);
     nextTracksList.appendChild(trackElement);
 
@@ -299,13 +301,12 @@ export async function updateNextTracks() {
       trackElement.classList.remove('hidden');
       trackElement.classList.add('visible');
       tracksLoaded++;
-
       if (tracksLoaded === Math.min(maxNextTracks, playlist.length - 1)) {
         setTimeout(() => {
           nextTracksName.classList.remove('hidden');
           nextTracksName.classList.add('visible');
-        }, 400);
+        }, 200);
       }
-    }, 400 * i);
+    }, 200 * i);
   }
 }
