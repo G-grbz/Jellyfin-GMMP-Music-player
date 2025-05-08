@@ -107,7 +107,7 @@ Run the ``` uninstall.bat ``` script as Administrator.
 
 ### Türkçe
 
-lcrlib.net üzerinden şarkı sözlerini çekebilen bir betik ekledim(lcrlib.sh). Bu betik eklentiden bağımsız olarak çalışmaktadır. (Linux)
+lrclib.net üzerinden şarkı sözlerini çekebilen bir betik ekledim(lrclib.sh). Bu betik eklentiden bağımsız olarak çalışmaktadır. (Linux)
 
 betiği çalıştırmak için gerekli bağımlılıklar: ```curl, jq, find```
 
@@ -123,7 +123,7 @@ dosya yolunuz boşluk içeriyor ise ```""``` içerisine alın yani ```sh lrclib.
 
 ### English
 
-A standalone script has been added to fetch synchronized lyrics from lcrlib.net. This script operates independently of the plugin and is designed for Linux systems.
+A standalone script has been added to fetch synchronized lyrics from lrclib.net. This script operates independently of the plugin and is designed for Linux systems.
 
 Requirements:
 To run the script, make sure the following dependencies are installed: curl, jq, and find
