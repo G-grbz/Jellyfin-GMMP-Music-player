@@ -144,7 +144,7 @@ async function showSaveModal() {
   modalTitle.id = "save-modal-title";
   modalHeader.appendChild(modalTitle);
 
-  const closeButton = document.createElement("button");
+  const closeButton = document.createElement("div");
   closeButton.className = "playlist-save-modal-close";
   closeButton.innerHTML = '<i class="fas fa-times"></i>';
   closeButton.setAttribute("aria-label", "Close save dialog");
@@ -645,8 +645,10 @@ export function showRemoveConfirmModal(trackIndex, trackName) {
       if (playlistId) {
         await removeItemsFromPlaylist(playlistId, [trackId]);
         showNotification(config.languageLabels.trackRemoved || "Parça kaldırıldı", "success");
+        updateNextTracks();
       } else {
         showNotification(config.languageLabels.trackRemovedLocal || "Parça listeden kaldırıldı", "info");
+        updateNextTracks();
       }
 
       musicPlayerState.playlist.splice(trackIndex, 1);

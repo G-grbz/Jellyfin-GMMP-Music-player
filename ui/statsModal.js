@@ -12,7 +12,10 @@ import { fetchLyrics } from "../lyrics/lyrics.js";
 
 const config = getConfig();
 const BATCH_SIZE = config.gruplimit;
-
+let statsModalInitialized = false;
+let cachedStats = null;
+let lastUpdateTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000;
 
 async function updateLyricsDatabase() {
     try {
@@ -45,6 +48,7 @@ export function showStatsModal() {
     const existing = document.getElementById("music-stats-modal");
     if (existing) {
         existing.classList.remove("hidden");
+        loadStatsIntoModal();
         return;
     }
 
@@ -87,38 +91,37 @@ export function showStatsModal() {
     modalBody.style.display = "none";
 
     const statItems = [
-    {
-        id: "stat-total-tracks",
-        className: "stat-item",
-        icon: '<i class="fa-solid fa-music"></i>',
-        label: config.languageLabels.totalTracks || "Toplam Şarkı"
-    },
-    {
-        id: "stat-total-albums",
-        className: "stat-item",
-        icon: '<i class="fa-solid fa-compact-disc"></i>',
-        label: config.languageLabels.totalAlbums || "Albüm Sayısı"
-    },
-    {
-        id: "stat-total-artists",
-        className: "stat-item",
-        icon: '<i class="fa-solid fa-user"></i>',
-        label: config.languageLabels.totalArtists || "Sanatçı Sayısı"
-    },
-    {
-        id: "stat-db-size",
-        className: "stat-item",
-        icon: '<i class="fa-solid fa-database"></i>',
-        label: config.languageLabels.databaseSize || "Veritabanı Boyutu"
-    },
-    {
-        id: "stat-total-lyrics",
-        className: "stat-item",
-        icon: '<i class="fa-solid fa-align-left"></i>',
-        label: config.languageLabels.totalLyrics || "Kayıtlı Şarkı Sözü Sayısı"
-    }
-];
-
+        {
+            id: "stat-total-tracks",
+            className: "stat-item",
+            icon: '<i class="fa-solid fa-music"></i>',
+            label: config.languageLabels.totalTracks || "Toplam Şarkı"
+        },
+        {
+            id: "stat-total-albums",
+            className: "stat-item",
+            icon: '<i class="fa-solid fa-compact-disc"></i>',
+            label: config.languageLabels.totalAlbums || "Albüm Sayısı"
+        },
+        {
+            id: "stat-total-artists",
+            className: "stat-item",
+            icon: '<i class="fa-solid fa-user"></i>',
+            label: config.languageLabels.totalArtists || "Sanatçı Sayısı"
+        },
+        {
+            id: "stat-db-size",
+            className: "stat-item",
+            icon: '<i class="fa-solid fa-database"></i>',
+            label: config.languageLabels.databaseSize || "Veritabanı Boyutu"
+        },
+        {
+            id: "stat-total-lyrics",
+            className: "stat-item",
+            icon: '<i class="fa-solid fa-align-left"></i>',
+            label: config.languageLabels.totalLyrics || "Kayıtlı Şarkı Sözü Sayısı"
+        }
+    ];
 
     statItems.forEach(item => {
         const el = document.createElement("div");
@@ -148,16 +151,15 @@ export function showStatsModal() {
         config.languageLabels.recentUpdates || "Son Güncellenenler",
         "stat-recent-updates",
         "show-all-updates",
-        config.languageLabels.showAllUpdates || "Diğer Tüm Güncellenenler"
+        config.languageLabels.showAllUpdates || "Tüm Güncellenenleri Göster"
     );
     modalBody.appendChild(updatesSection);
-
 
     const deletesSection = createStatSection(
         config.languageLabels.recentDeletes || "Son Silinenler",
         "stat-recent-deletes",
         "show-all-deletes",
-        config.languageLabels.showAllDeletes || "Diğer Tüm Silinenler"
+        config.languageLabels.showAllDeletes || "Tüm Silinenleri Göster"
     );
     modalBody.appendChild(deletesSection);
 
@@ -256,10 +258,27 @@ export function showStatsModal() {
     detailedCloseBtn.onclick = () => detailedModal.classList.add("hidden");
 
     refreshBtn.onclick = async () => {
-        refreshIcon.classList.add("fa-spin");
-        await loadStatsIntoModal();
+    refreshIcon.classList.add("fa-spin");
+
+    document.querySelectorAll('.stat-value').forEach(el => {
+        el.textContent = '...';
+    });
+
+    document.getElementById('stat-recent-updates').innerHTML = '';
+    document.getElementById('stat-recent-deletes').innerHTML = '';
+
+    cachedStats = null;
+    lastUpdateTime = 0;
+
+    try {
+        await loadStatsIntoModal(true);
+    } catch (error) {
+        console.error('Yenileme sırasında hata:', error);
+        showNotification(config.languageLabels.refreshError || "Yenileme sırasında hata oluştu", 3000, 'error');
+    } finally {
         refreshIcon.classList.remove("fa-spin");
-    };
+    }
+};
 
     modal.addEventListener("click", (e) => {
         if (e.target === modal) modal.classList.add("hidden");
@@ -291,108 +310,108 @@ export function showStatsModal() {
         }
     };
 
+
     document.getElementById('show-all-updates').addEventListener('click', async () => {
-    const button = document.getElementById('show-all-updates');
-    const originalContent = button.innerHTML;
+        const button = document.getElementById('show-all-updates');
+        const originalContent = button.innerHTML;
 
-    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.disabled = true;
 
-    try {
-        const stats = await musicDB.getStats();
-        toggleDetailedModal(
-            config.languageLabels.allUpdatedTracks || "Son Güncellenen Tüm Parçalar",
-            stats.recentlyUpdated,
-            formatTrackInfo
-        );
-    } catch (error) {
-        console.error('Güncellenenler yüklenirken hata:', error);
-        showNotification(config.languageLabels.loadError || "Yükleme sırasında hata oluştu", 3000, 'error');
-    } finally {
-        button.innerHTML = originalContent;
-        button.disabled = false;
-    }
-});
+        try {
+            const stats = await musicDB.getStats();
+            toggleDetailedModal(
+                config.languageLabels.allUpdatedTracks || "Son Eklenen Tüm Parçalar",
+                stats.recentlyAdded,
+                formatTrackInfo
+            );
+        } catch (error) {
+            console.error('Eklenenler yüklenirken hata:', error);
+            showNotification(config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu", 3000, 'error');
+        } finally {
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        }
+    });
 
     document.getElementById('show-all-deletes').addEventListener('click', async () => {
-    const button = document.getElementById('show-all-deletes');
-    const originalContent = button.innerHTML;
+        const button = document.getElementById('show-all-deletes');
+        const originalContent = button.innerHTML;
 
-    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.disabled = true;
 
-    try {
-        const recentlyDeleted = await musicDB.getRecentlyDeleted();
-        const items = recentlyDeleted.map(d => ({
-            ...d.trackData,
-            deletedAt: d.deletedAt
-        }));
-        toggleDetailedModal(
-            config.languageLabels.allDeletedTracks || "Son Silinen Tüm Parçalar",
-            items,
-            (item) => formatTrackInfo(item, item.deletedAt)
-        );
-    } catch (error) {
-        console.error('Silinenler yüklenirken hata:', error);
-        showNotification(config.languageLabels.loadError || "Yükleme sırasında hata oluştu", 3000, 'error');
-    } finally {
-        button.innerHTML = originalContent;
-        button.disabled = false;
-    }
-});
+        try {
+            const recentlyDeleted = await musicDB.getRecentlyDeleted();
+            const items = recentlyDeleted.map(d => ({
+                ...d.trackData,
+                DateCreated: d.deletedAt
+            }));
+            toggleDetailedModal(
+                config.languageLabels.allDeletedTracks || "Son Silinen Tüm Parçalar",
+                items,
+                formatTrackInfo
+            );
+        } catch (error) {
+            console.error('Silinenler yüklenirken hata:', error);
+            showNotification(config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu", 3000, 'error');
+        } finally {
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        }
+    });
 
     document.getElementById('clear-db-btn').addEventListener('click', async () => {
-  const confirmed = confirm(config.languageLabels.confirmClearDatabase || "Tüm veritabanını temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz!");
-  if (!confirmed) return;
+        const confirmed = confirm(config.languageLabels.confirmClearDatabase || "Tüm veritabanını temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz!");
+        if (!confirmed) return;
 
-  try {
-    const db = await musicDB.openDB();
-    const transaction = db.transaction(
-      ['tracks', 'deletedTracks', 'lyrics'],
-      'readwrite'
-    );
+        try {
+            const db = await musicDB.openDB();
+            const transaction = db.transaction(
+                ['tracks', 'deletedTracks', 'lyrics'],
+                'readwrite'
+            );
 
-    const tracksStore = transaction.objectStore('tracks');
-    await new Promise((resolve, reject) => {
-      const req = tracksStore.clear();
-      req.onsuccess = resolve;
-      req.onerror = reject;
+            const tracksStore = transaction.objectStore('tracks');
+            await new Promise((resolve, reject) => {
+                const req = tracksStore.clear();
+                req.onsuccess = resolve;
+                req.onerror = reject;
+            });
+
+            const deletedStore = transaction.objectStore('deletedTracks');
+            await new Promise((resolve, reject) => {
+                const req = deletedStore.clear();
+                req.onsuccess = resolve;
+                req.onerror = reject;
+            });
+
+            const lyricsStore = transaction.objectStore('lyrics');
+            await new Promise((resolve, reject) => {
+                const req = lyricsStore.clear();
+                req.onsuccess = resolve;
+                req.onerror = reject;
+            });
+
+            showNotification(
+                config.languageLabels.databaseCleared || "Veritabanı başarıyla temizlendi",
+                3000,
+                'success'
+            );
+
+            cachedStats = null;
+            await loadStatsIntoModal();
+
+        } catch (error) {
+            console.error('Veritabanı temizlenirken hata:', error);
+            showNotification(
+                config.languageLabels.clearDatabaseError || "Veritabanı temizlenirken hata oluştu",
+                3000,
+                'error'
+            );
+        }
     });
-
-    const deletedStore = transaction.objectStore('deletedTracks');
-    await new Promise((resolve, reject) => {
-      const req = deletedStore.clear();
-      req.onsuccess = resolve;
-      req.onerror = reject;
-    });
-
-    const lyricsStore = transaction.objectStore('lyrics');
-    await new Promise((resolve, reject) => {
-      const req = lyricsStore.clear();
-      req.onsuccess = resolve;
-      req.onerror = reject;
-    });
-
-    showNotification(
-      config.languageLabels.databaseCleared || "Veritabanı başarıyla temizlendi",
-      3000,
-      'success'
-    );
-
-    await loadStatsIntoModal();
-
-  } catch (error) {
-    console.error('Veritabanı temizlenirken hata:', error);
-    showNotification(
-      config.languageLabels.clearDatabaseError || "Veritabanı temizlenirken hata oluştu",
-      3000,
-      'error'
-    );
-  }
-});
-    loadStatsIntoModal();
 }
-
 
 async function backupDatabase() {
     const backupBtn = document.getElementById('backup-db-btn');
@@ -572,7 +591,8 @@ async function handleRestoreFile(event) {
 
         updateProgress(100, config.languageLabels.restoreComplete || "Geri yükleme tamamlandı!");
         showNotification(config.languageLabels.restoreSuccess || "Veritabanı başarıyla geri yüklendi", 3000, 'success');
-        await loadStatsIntoModal();
+        await loadStatsIntoModal(true);
+
     } catch (error) {
         console.error('Geri yükleme hatası:', error);
         showNotification(
@@ -626,32 +646,51 @@ function createStatSection(title, listId, buttonId, buttonText) {
     return section;
 }
 
-async function loadStatsIntoModal() {
+async function loadStatsIntoModal(forceRefresh = false) {
     try {
-        const [stats, recentlyDeleted, dbSize, lyricsCount] = await Promise.all([
-            musicDB.getStats(),
-            musicDB.getRecentlyDeleted(),
-            getDatabaseSize(),
-            musicDB.getLyricsCount()
-        ]);
+        const now = Date.now();
 
-        document.querySelector("#stat-total-tracks .stat-value").textContent = stats.totalTracks;
-        document.querySelector("#stat-total-albums .stat-value").textContent = stats.totalAlbums;
-        document.querySelector("#stat-total-artists .stat-value").textContent = stats.totalArtists;
-        document.querySelector("#stat-db-size .stat-value").textContent = dbSize;
-        document.querySelector("#stat-total-lyrics .stat-value").textContent = lyricsCount;
+        if (forceRefresh || !cachedStats || (now - lastUpdateTime > CACHE_DURATION)) {
+            const [stats, recentlyDeleted, dbSize, lyricsCount] = await Promise.all([
+                musicDB.getStats(),
+                musicDB.getRecentlyDeleted(),
+                getDatabaseSize(),
+                musicDB.getLyricsCount()
+            ]);
+
+            cachedStats = {
+                ...stats,
+                recentlyDeleted,
+                dbSize,
+                lyricsCount
+            };
+            lastUpdateTime = now;
+        }
+
+        document.querySelector("#stat-total-tracks .stat-value").textContent = cachedStats.totalTracks;
+        document.querySelector("#stat-total-albums .stat-value").textContent = cachedStats.totalAlbums;
+        document.querySelector("#stat-total-artists .stat-value").textContent = cachedStats.totalArtists;
+        document.querySelector("#stat-db-size .stat-value").textContent = cachedStats.dbSize;
+        document.querySelector("#stat-total-lyrics .stat-value").textContent = cachedStats.lyricsCount;
 
         await loadRecentItems(
-            stats.recentlyUpdated,
+            cachedStats.recentlyAdded,
             'stat-recent-updates',
-            config.languageLabels.recentUpdates || "Son Güncellenenler",
-            (item) => formatTrackInfo(item)
+            config.languageLabels.recentlyAdded || "Son Eklenenler",
+            formatTrackInfo
         );
+
         await loadRecentItems(
-            recentlyDeleted.map(d => d.trackData),
+            cachedStats.recentlyDeleted.map(d => d.trackData),
             'stat-recent-deletes',
             config.languageLabels.recentDeletes || "Son Silinenler",
-            (item, index) => formatTrackInfo(item, recentlyDeleted[index].deletedAt)
+            (item, index) => {
+                const deletedItem = cachedStats.recentlyDeleted[index];
+                return formatTrackInfo({
+                    ...item,
+                    DateCreated: deletedItem.deletedAt
+                });
+            }
         );
     } catch (error) {
         console.error('İstatistikler yüklenirken hata:', error);
@@ -663,6 +702,7 @@ async function loadStatsIntoModal() {
     }
 }
 
+
 async function getDatabaseSize() {
     try {
         const [allTracks, stats, recentlyDeleted, allLyrics] = await Promise.all([
@@ -672,27 +712,17 @@ async function getDatabaseSize() {
             musicDB.getAllLyrics()
         ]);
 
-        const sizeObject = {
-            metadata: {
-                version: 1,
-                createdAt: new Date().toISOString(),
-                totalTracks: stats.totalTracks,
-                totalAlbums: stats.totalAlbums,
-                totalArtists: stats.totalArtists,
-                totalLyrics: allLyrics.length
-            },
+        const jsonString = JSON.stringify({
             tracks: allTracks,
             deletedTracks: recentlyDeleted,
             lyrics: allLyrics
-        };
-
-        const jsonString = JSON.stringify(sizeObject);
+        });
         const sizeInBytes = new TextEncoder().encode(jsonString).length;
         const sizeInMB = (sizeInBytes / (1024 * 1024)).toFixed(2);
 
         return `${sizeInMB} MB`;
     } catch (error) {
-        console.error('Gerçek DB boyutu hesaplanamadı:', error);
+        console.error('DB boyutu hesaplanamadı:', error);
         return '? MB';
     }
 }
@@ -746,39 +776,76 @@ async function loadRecentItems(items, containerId, sectionTitle, formatter) {
     container.innerHTML = '';
 
     if (items.length === 0) {
-    container.innerHTML = `<div class="no-items">${config.languageLabels.noData}</div>`;
-    return;
-}
+        container.innerHTML = `<div class="no-items">${config.languageLabels.noData}</div>`;
+        return;
+    }
+
+    const validItems = items.filter(item => {
+        if (!item.DateCreated) {
+            console.warn("DateCreated olmayan öğe:", item);
+            return false;
+        }
+        return true;
+    });
 
     const maxVisible = 5;
-    const visibleItems = items.slice(0, maxVisible);
+    const visibleItems = validItems.slice(0, maxVisible);
     visibleItems.forEach((item, index) => {
         container.innerHTML += formatter(item, index);
     });
 }
 
-function formatTrackInfo(track, customDate = null) {
-    const date = new Date(customDate || track.LastUpdated);
-    const dateStr = date.toLocaleString('tr-TR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
+function formatTrackInfo(track, index) {
+    let displayDate = "Bilinmeyen Tarih";
+    try {
+        if (track.DateCreated) {
+            const date = new Date(track.DateCreated);
+            if (!isNaN(date)) {
+                displayDate = date.toLocaleString('tr-TR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+        }
+    } catch (e) {
+        console.warn("Tarih formatlama hatası:", e);
+    }
 
-    const artists = Array.isArray(track.Artists) ? track.Artists.join(', ') :
-                   track.AlbumArtist || config.languageLabels.artistUnknown;
+    const artists = Array.isArray(track.Artists)
+        ? track.Artists.join(', ')
+        : track.AlbumArtist || config.languageLabels.artistUnknown;
 
     return `
         <div class="track-info">
             <div class="track-name">${track.Name || config.languageLabels.unknownTrack}</div>
             <div class="track-artist">${artists}</div>
-            <div class="track-date">${dateStr}</div>
+            <div class="track-date">${displayDate}</div>
         </div>
     `;
 }
+
+async function migrateDateCreated() {
+    try {
+        const tracks = await musicDB.getAllTracks();
+        const tracksToUpdate = tracks.filter(track => !track.DateCreated);
+
+        if (tracksToUpdate.length > 0) {
+            tracksToUpdate.forEach(track => {
+                track.DateCreated = track.LastUpdated || new Date().toISOString();
+            });
+
+            await musicDB.saveTracksInBatches(tracksToUpdate);
+            console.log(`${tracksToUpdate.length} kayıt güncellendi`);
+        }
+    } catch (error) {
+        console.error("Migration hatası:", error);
+    }
+}
+
 
 function showDetailedList(title, items, formatter) {
     const modal = document.getElementById('detailed-list-modal');

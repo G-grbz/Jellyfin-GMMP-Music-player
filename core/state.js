@@ -43,6 +43,7 @@ export const musicPlayerState = {
   isUserModified: false,
   effectivePlaylist: [],
   onTrackChanged: [],
+  removeOnPlay: false,
   isShuffled: false,
   audio: (() => {
   const audio = new Audio();
@@ -127,14 +128,16 @@ export function loadUserSettings() {
       };
 
       if (!['none', 'one', 'all'].includes(musicPlayerState.userSettings.repeatMode)) {
-        musicPlayerState.userSettings.repeatMode = 'none';
-      }
+         musicPlayerState.userSettings.repeatMode = 'none';
+       }
 
       musicPlayerState.audio.volume = musicPlayerState.userSettings.volume;
       if (musicPlayerState.volumeSlider) {
         musicPlayerState.volumeSlider.value = musicPlayerState.userSettings.volume;
       }
 
+      musicPlayerState.userSettings.shuffle = false;
+      updateShuffleButtonUI();
       updateRepeatButtonUI();
       updateShuffleButtonUI();
 
@@ -146,7 +149,7 @@ export function loadUserSettings() {
 }
 
 function updateRepeatButtonUI() {
-  const repeatBtn = document.querySelector('.player-btn .fa-repeat')?.parentElement;
+  const repeatBtn = document.querySelector('.player-btn .fa-repeat, .player-btn .fa-repeat-1')?.parentElement;
   if (!repeatBtn) return;
 
   const titles = {
@@ -155,10 +158,14 @@ function updateRepeatButtonUI() {
     'all': config.languageLabels?.repeatModAll || 'Tüm liste tekrarı'
   };
 
+  let iconClass = 'fa-repeat';
+  if (musicPlayerState.userSettings.repeatMode === 'one') {
+    iconClass = 'fa-repeat-1';
+  }
+
+  const isActive = musicPlayerState.userSettings.repeatMode !== 'none';
   repeatBtn.title = titles[musicPlayerState.userSettings.repeatMode];
-  repeatBtn.innerHTML = musicPlayerState.userSettings.repeatMode === 'none' ?
-    '<i class="fas fa-repeat"></i>' :
-    `<i class="fas fa-repeat" style="color:#e91e63"></i>`;
+  repeatBtn.innerHTML = `<i class="fas ${iconClass}" style="${isActive ? 'color:#e91e63' : ''}"></i>`;
 }
 
 function updateShuffleButtonUI() {
@@ -178,4 +185,12 @@ function updateShuffleButtonUI() {
 
 export function saveUserSettings() {
   localStorage.setItem('musicPlayerSettings', JSON.stringify(musicPlayerState.userSettings));
+}
+
+export function resetShuffle() {
+  if (musicPlayerState.userSettings.shuffle) {
+    musicPlayerState.userSettings.shuffle = false;
+    updateShuffleButtonUI();
+    saveUserSettings();
+  }
 }

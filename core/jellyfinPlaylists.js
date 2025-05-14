@@ -1,6 +1,6 @@
 import { getAuthToken } from "./auth.js";
 import { showNotification } from "../ui/notification.js";
-import { musicPlayerState } from "./state.js";
+import { musicPlayerState, resetShuffle } from "./state.js";
 import { getConfig } from "./configLoader.js";
 import { playTrack } from "../player/playback.js";
 import { updatePlaylistModal } from "../ui/playlistModal.js";
@@ -133,13 +133,12 @@ export async function playJellyfinPlaylist(playlistId) {
                                     currentTrack?.AlbumArtistId ||
                                     currentTrack?.ArtistId ||
                                     null;
-
-                    await toggleArtistModal(true, artistName, artistId);
                 }
             });
         }
 
         updatePlaylistModal();
+        resetShuffle();
         showNotification(`${items.length} ${config.languageLabels.tracks}`);
         playTrack(0);
 

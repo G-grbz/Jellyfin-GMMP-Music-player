@@ -3,7 +3,7 @@ import { musicPlayerState } from "../core/state.js";
 export class MusicDB {
     constructor() {
         this.dbName = 'GMMP-MusicDB';
-        this.dbVersion = 1;
+        this.dbVersion = 2;
         this.storeName = 'tracks';
         this.deletedStoreName = 'deletedTracks';
         this.lyricsStoreName = 'lyrics';
@@ -19,10 +19,11 @@ export class MusicDB {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 let store;
+
                 if (!db.objectStoreNames.contains(this.storeName)) {
                     store = db.createObjectStore(this.storeName, { keyPath: 'Id' });
                 } else {
-                    store = request.transaction.objectStore(this.storeName);
+                    store = event.currentTarget.transaction.objectStore(this.storeName);
                 }
 
                 if (!store.indexNames.contains('DateCreated'))
@@ -37,12 +38,6 @@ export class MusicDB {
                 if (!store.indexNames.contains('LastUpdated'))
                     store.createIndex('LastUpdated', 'LastUpdated', { unique: false });
 
-                if (!db.objectStoreNames.contains('lyrics')) {
-                    const lyricsStore = db.createObjectStore('lyrics', { keyPath: 'trackId' });
-                    lyricsStore.createIndex('trackId', 'trackId', { unique: true });
-                    lyricsStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
-                }
-
                 if (!db.objectStoreNames.contains(this.lyricsStoreName)) {
                     const lyricsStore = db.createObjectStore(this.lyricsStoreName, { keyPath: 'trackId' });
                     lyricsStore.createIndex('trackId', 'trackId', { unique: true });
@@ -54,6 +49,19 @@ export class MusicDB {
                     deletedStore.createIndex('trackId', 'trackId', { unique: false });
                     deletedStore.createIndex('deletedAt', 'deletedAt', { unique: false });
                     deletedStore.createIndex('trackData', 'trackData', { unique: false });
+                }
+                if (event.oldVersion < 2) {
+                    const trackStore = event.currentTarget.transaction.objectStore(this.storeName);
+                    trackStore.getAll().onsuccess = (e) => {
+                        const tracks = e.target.result;
+                        const nowIso = new Date().toISOString();
+                        tracks.forEach(track => {
+                            if (!track.DateCreated) {
+                                track.DateCreated = track.LastUpdated || nowIso;
+                                trackStore.put(track);
+                            }
+                        });
+                    };
                 }
             };
 
@@ -136,24 +144,39 @@ export class MusicDB {
     }
 
     async saveTracks(tracks) {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            const now = new Date().toISOString();
-
-            tracks.forEach(track => {
-                track.LastUpdated = now;
-                store.put(track);
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.storeName], 'readwrite');
+        const store = transaction.objectStore(this.storeName);
+        const now = new Date().toISOString();
+        const ops = tracks.map(track => {
+            return new Promise((res, rej) => {
+                const getReq = store.get(track.Id);
+                getReq.onsuccess = () => {
+                    const existing = getReq.result;
+                    if (existing && existing.DateCreated && !isNaN(Date.parse(existing.DateCreated))) {
+                        track.DateCreated = existing.DateCreated;
+                    } else {
+                        track.DateCreated = now;
+                    }
+                    track.LastUpdated = now;
+                    const putReq = store.put(track);
+                    putReq.onsuccess = () => res();
+                    putReq.onerror = () => rej(putReq.error);
+                };
+                getReq.onerror = () => rej(getReq.error);
             });
-
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = (event) => {
-                console.error('Parçalar kaydedilirken hata:', event.target.error);
-                reject(event.target.error);
-            };
         });
-    }
+
+        Promise.all(ops)
+            .then(() => resolve())
+            .catch(error => {
+                console.error('Parçalar kaydedilirken hata:', error);
+                reject(error);
+            });
+    });
+}
+
 
     async saveTracksInBatches(tracks, batchSize = 100) {
         for (let i = 0; i < tracks.length; i += batchSize) {
@@ -269,7 +292,7 @@ export class MusicDB {
         });
     }
 
-    async getRecentlyUpdated() {
+    async getRecentlyUpdated(limit = 250) {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([this.storeName], 'readonly');
@@ -283,7 +306,7 @@ export class MusicDB {
         const recent = [];
         request.onsuccess = (event) => {
             const cursor = event.target.result;
-            if (cursor) {
+            if (cursor && recent.length < limit) {
                 recent.push(cursor.value);
                 cursor.continue();
             } else {
@@ -336,13 +359,15 @@ export class MusicDB {
         }
     });
 
-    const recentlyUpdated = await this.getRecentlyUpdated();
+    const recentlyAdded = [...allTracks]
+        .sort((a, b) => new Date(b.DateCreated) - new Date(a.DateCreated))
+        .slice(0, 250);
 
     return {
         totalTracks,
         totalAlbums: albums.size,
         totalArtists: artists.size,
-        recentlyUpdated
+        recentlyAdded
     };
 }
 

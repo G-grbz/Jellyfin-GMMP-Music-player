@@ -5,6 +5,7 @@ import { createModernPlayerUI } from "../ui/playerUI.js";
 import { setupMobileTouchControls } from "./domUtils.js";
 import { loadJSMediaTags } from "../lyrics/id3Reader.js";
 import { setupAudioListeners } from "../player/progress.js";
+import { enableKeyboardControls, disableKeyboardControls } from "../ui/controls.js";
 
 export async function initPlayer() {
   try {
@@ -48,10 +49,12 @@ export function togglePlayerVisibility() {
             musicPlayerState.modernPlayer.removeAttribute('aria-hidden');
             musicPlayerState.modernPlayer.inert = false;
             setTimeout(() => musicPlayerState.playPauseBtn.focus(), 100);
+            enableKeyboardControls();
         } else {
             document.activeElement.blur();
             musicPlayerState.modernPlayer.setAttribute('aria-hidden', 'true');
             musicPlayerState.modernPlayer.inert = true;
+            disableKeyboardControls();
         }
     }
 }

@@ -8,12 +8,30 @@ import { updateNextTracks } from "./playerUI.js";
 
 const config = getConfig();
 
+let keyboardControlsActive = false;
+let keyboardHandler = null;
+
 function areVolumeControlsReady() {
   return (
     musicPlayerState.audio &&
     musicPlayerState.volumeBtn &&
     musicPlayerState.volumeSlider
   );
+}
+
+export function enableKeyboardControls() {
+  if (keyboardControlsActive) return;
+
+  keyboardHandler = (e) => handleKeyPress(e);
+  document.addEventListener('keydown', keyboardHandler);
+  keyboardControlsActive = true;
+}
+
+export  function disableKeyboardControls() {
+  if (!keyboardControlsActive || !keyboardHandler) return;
+
+  document.removeEventListener('keydown', keyboardHandler);
+  keyboardControlsActive = false;
 }
 
 export function updateVolumeIcon(volume) {
@@ -219,19 +237,6 @@ function createKeyboardHelpModal() {
 
   const modal = document.createElement('div');
   modal.id = 'keyboardHelpModal';
-  modal.style.position = 'fixed';
-  modal.style.top = '50%';
-  modal.style.left = '50%';
-  modal.style.transform = 'translate(-50%, -50%)';
-  modal.style.background = '#222';
-  modal.style.color = '#fff';
-  modal.style.padding = '20px';
-  modal.style.borderRadius = '10px';
-  modal.style.zIndex = '9999';
-  modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-  modal.style.fontSize = '14px';
-  modal.style.maxWidth = '400px';
-  modal.style.lineHeight = '1.6';
   modal.style.display = 'none';
 
   modal.innerHTML = `
@@ -259,7 +264,7 @@ function toggleKeyboardHelpModal() {
   modal.style.display = isVisible ? 'none' : 'block';
 }
 
-document.addEventListener('keydown', (e) => {
+export function handleKeyPress(e) {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
   switch (e.key.toLowerCase()) {
@@ -319,6 +324,31 @@ document.addEventListener('keydown', (e) => {
     default:
       break;
   }
-});
+}
 
 createKeyboardHelpModal();
+
+export function toggleRemoveOnPlayMode() {
+  const setting = !musicPlayerState.userSettings.removeOnPlay;
+  musicPlayerState.userSettings.removeOnPlay = setting;
+  saveUserSettings();
+
+  const btn = document.querySelector('.remove-on-play-btn');
+  if (!btn) return;
+
+  const onTitle  = config.languageLabels.removeOnPlayOn  || "Çaldıktan sonra sil: Açık";
+  const offTitle = config.languageLabels.removeOnPlayOff || "Çaldıktan sonra sil: Kapalı";
+  btn.title = setting ? onTitle : offTitle;
+
+  btn.innerHTML = setting
+    ? '<i class="fas fa-trash-list" style="color:#e91e63"></i>'
+    : '<i class="fas fa-trash-list"></i>';
+
+  showNotification(
+    setting
+      ? config.languageLabels.removeOnPlayOn  || "Çaldıktan sonra sil modu açık"
+      : config.languageLabels.removeOnPlayOff || "Çaldıktan sonra sil modu kapalı",
+    1500,
+    'info'
+  );
+}

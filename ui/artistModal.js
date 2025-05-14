@@ -18,6 +18,25 @@ const ALBUMS_PER_PAGE = config.albumlimit;
 const BATCH_SIZE = config.gruplimit;
 const allNewTracks = [];
 
+const SORT_OPTIONS = {
+    ALPHABETICAL: 'alphabetical',
+    REVERSE_ALPHABETICAL: 'reverse-alphabetical',
+    DATE_ADDED: 'date-added',
+    ARTIST: 'artist',
+    ALBUM: 'album',
+    DURATION: 'duration',
+    YEAR: 'year'
+};
+
+const sortStates = {
+    [SORT_OPTIONS.ALPHABETICAL]: { asc: true },
+    [SORT_OPTIONS.ARTIST]: { asc: true },
+    [SORT_OPTIONS.ALBUM]: { asc: true },
+    [SORT_OPTIONS.DATE_ADDED]: { asc: true },
+    [SORT_OPTIONS.DURATION]: { asc: true },
+    [SORT_OPTIONS.YEAR]: { asc: true }
+};
+
 let artistModal = null;
 let searchDebounceTimer = null;
 let allTracks = [];
@@ -28,6 +47,8 @@ let totalTracks = 20;
 let totalArtists = 0;
 let totalAlbums = 0;
 let currentPaginationMode = 'tracks';
+let currentSortOption = SORT_OPTIONS.ALPHABETICAL;
+let currentModalArtist = { name: "", id: null };
 
 export function getJellyfinCredentials() {
     try {
@@ -68,6 +89,58 @@ function groupTracksByAlbum(tracks) {
     return albums;
 }
 
+function sortTracks(tracks, sortOption) {
+    const sortedTracks = [...tracks];
+    const isAscending = sortStates[sortOption].asc;
+
+    switch(sortOption) {
+        case SORT_OPTIONS.ALPHABETICAL:
+            return sortedTracks.sort((a, b) => {
+                const compare = (a.Name || '').localeCompare(b.Name || '', 'tr', { sensitivity: 'base' });
+                return isAscending ? compare : -compare;
+            });
+
+        case SORT_OPTIONS.ARTIST:
+            return sortedTracks.sort((a, b) => {
+                const artistA = (a.Artists?.[0] || a.AlbumArtist || '').toLowerCase();
+                const artistB = (b.Artists?.[0] || b.AlbumArtist || '').toLowerCase();
+                let compare = artistA.localeCompare(artistB, 'tr') ||
+                            (a.Album || '').localeCompare(b.Album || '', 'tr') ||
+                            (a.IndexNumber || 0) - (b.IndexNumber || 0);
+                return isAscending ? compare : -compare;
+            });
+
+        case SORT_OPTIONS.ALBUM:
+            return sortedTracks.sort((a, b) => {
+                const yearA = parseInt(a.ProductionYear || '0');
+                const yearB = parseInt(b.ProductionYear || '0');
+                let compare = yearB - yearA;
+                if (compare === 0) {
+                    compare = (a.Album || '').localeCompare(b.Album || '', 'tr') ||
+                             (a.IndexNumber || 0) - (b.IndexNumber || 0);
+                }
+                return isAscending ? compare : -compare;
+            });
+
+        case SORT_OPTIONS.DATE_ADDED:
+            return sortedTracks.sort((a, b) => {
+                const dateA = new Date(a.DateCreated || a.PremiereDate || '2000-01-01');
+                const dateB = new Date(b.DateCreated || b.PremiereDate || '2000-01-01');
+                const compare = dateB - dateA;
+                return isAscending ? compare : -compare;
+            });
+
+        case SORT_OPTIONS.DURATION:
+            return sortedTracks.sort((a, b) => {
+                const compare = (b.RunTimeTicks || 0) - (a.RunTimeTicks || 0);
+                return isAscending ? compare : -compare;
+            });
+
+        default:
+            return sortedTracks;
+    }
+}
+
 export function createArtistModal() {
     if (artistModal) return artistModal;
 
@@ -93,18 +166,18 @@ export function createArtistModal() {
     fetchNewMusicBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
     fetchNewMusicBtn.title = config.languageLabels.syncDB || "Veri tabanını senkronize et";
     fetchNewMusicBtn.onclick = async () => {
-    fetchNewMusicBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    showNotification(config.languageLabels.syncStarted || "Senkronizasyon başlatıldı...", 3000, 'db');
+        fetchNewMusicBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        showNotification(config.languageLabels.syncStarted || "Senkronizasyon başlatıldı...", 3000, 'db');
 
-    try {
-        await checkForNewMusic();
-        showNotification(config.languageLabels.syncCompleted || "Senkronizasyon tamamlandı", 3000, 'success');
-    } catch (error) {
-        console.error('Senkronizasyon hatası:', error);
-    } finally {
-        fetchNewMusicBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
-    }
-};
+        try {
+            await checkForNewMusic();
+            showNotification(config.languageLabels.syncCompleted || "Senkronizasyon tamamlandı", 3000, 'success');
+        } catch (error) {
+            console.error('Senkronizasyon hatası:', error);
+        } finally {
+            fetchNewMusicBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
+        }
+    };
 
     const saveToPlaylistBtn = document.createElement("div");
     saveToPlaylistBtn.className = "modal-save-to-playlist-btn";
@@ -118,7 +191,6 @@ export function createArtistModal() {
     showStatsBtn.innerHTML = '<i class="fa-solid fa-chart-simple"></i>';
     showStatsBtn.title = config.languageLabels.stats || "İstatistikleri göster";
     showStatsBtn.onclick = () => showStatsModal();
-
 
     const headerActions = document.createElement("div");
     headerActions.className = "modal-header-actions";
@@ -163,20 +235,20 @@ export function createArtistModal() {
     clearSearchBtn.className = "modal-search-clear hidden";
     clearSearchBtn.innerHTML = '<i class="fas fa-times"></i>';
     clearSearchBtn.onclick = () => {
-    searchInput.value = "";
-    clearSearchBtn.classList.add("hidden");
-    filterArtistTracks("");
+        searchInput.value = "";
+        clearSearchBtn.classList.add("hidden");
+        filterArtistTracks("");
     };
 
     searchInput.addEventListener("input", (e) => {
-    clearSearchBtn.classList.toggle("hidden", !e.target.value);
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-        filterArtistTracks(e.target.value);
-    }, SEARCH_DEBOUNCE_TIME);
+        clearSearchBtn.classList.toggle("hidden", !e.target.value);
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            filterArtistTracks(e.target.value);
+        }, SEARCH_DEBOUNCE_TIME);
     });
 
-searchContainer.append(searchInput, clearSearchBtn);
+    searchContainer.append(searchInput, clearSearchBtn);
 
     const artistName = document.createElement("h2");
     artistName.className = "modal-artist-name";
@@ -196,6 +268,7 @@ searchContainer.append(searchInput, clearSearchBtn);
 
     artistMeta.append(tracksCount, albumCount, artistCount);
     artistInfo.append(artistName, artistMeta);
+
     modalHeader.append(artistImage, artistInfo, searchContainer, headerActions);
 
     const tracksContainer = document.createElement("div");
@@ -215,7 +288,6 @@ searchContainer.append(searchInput, clearSearchBtn);
 
     return artistModal;
 }
-
 
 async function loadAllMusicFromJellyfin() {
     const artistModal = document.getElementById("artist-modal");
@@ -265,6 +337,7 @@ async function loadAllMusicFromJellyfin() {
             }
         });
 
+        allMusic = sortTracks(allMusic, currentSortOption);
         allTracks = [...allMusic];
         totalTracks = allTracks.length;
         totalAlbums = albums.size;
@@ -301,6 +374,88 @@ async function loadAllMusicFromJellyfin() {
         `;
     }
 }
+
+function createSortDropdown() {
+    const sortContainer = document.createElement('div');
+    sortContainer.className = 'modal-sort-container';
+
+    const innerContainer = document.createElement('div');
+    innerContainer.className = 'sort-inner-container';
+
+    const sortLabel = document.createElement('span');
+    sortLabel.className = 'modal-sort-label';
+    sortLabel.textContent = config.languageLabels.sortBy || 'Sırala:';
+
+    const sortSelect = document.createElement('select');
+    sortSelect.className = 'modal-sort-select';
+
+    const directionBtn = document.createElement('button');
+    directionBtn.className = 'sort-direction-btn';
+    directionBtn.innerHTML = '<i class="fas fa-sort-amount-down"></i>';
+    directionBtn.title = config.languageLabels.toggleSortDirection || 'Sıralama yönünü değiştir';
+    directionBtn.addEventListener('click', toggleSortDirection);
+
+    const options = [
+        { value: SORT_OPTIONS.ALPHABETICAL, text: config.languageLabels.sortAlphabetical || 'Şarkı Adı' },
+        { value: SORT_OPTIONS.ARTIST, text: config.languageLabels.sortArtist || 'Sanatçı' },
+        { value: SORT_OPTIONS.ALBUM, text: config.languageLabels.sortAlbum || 'Albüm' },
+        { value: SORT_OPTIONS.DATE_ADDED, text: config.languageLabels.sortDateAdded || 'Eklenme Tarihi' },
+        { value: SORT_OPTIONS.DURATION, text: config.languageLabels.sortDuration || 'Süre' }
+    ];
+
+    options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option.value;
+        optionElement.textContent = option.text;
+        if (option.value === currentSortOption) {
+            optionElement.selected = true;
+        }
+        sortSelect.appendChild(optionElement);
+    });
+
+    sortSelect.addEventListener('change', (e) => {
+        currentSortOption = e.target.value;
+        refreshCurrentView();
+        updateSortDirectionIcon();
+    });
+
+    innerContainer.appendChild(sortLabel);
+    innerContainer.appendChild(sortSelect);
+    innerContainer.appendChild(directionBtn);
+    sortContainer.appendChild(innerContainer);
+
+    return sortContainer;
+}
+
+function toggleSortDirection() {
+    sortStates[currentSortOption].asc = !sortStates[currentSortOption].asc;
+    refreshCurrentView();
+    updateSortDirectionIcon();
+}
+
+function updateSortDirectionIcon() {
+    const activeHeader = document.querySelector(".modal-sort-header.active");
+    if (!activeHeader) return;
+
+    const icon = activeHeader.querySelector("i");
+    if (icon) {
+        icon.className = sortStates[currentSortOption].asc ?
+            "fas fa-sort-amount-down" :
+            "fas fa-sort-amount-up";
+    }
+}
+
+function refreshCurrentView() {
+    const artistNameElement = document.querySelector("#artist-modal .modal-artist-name");
+    const isAllMusicView = artistNameElement?.textContent === (config.languageLabels.allMusic || "Tüm Müzikler");
+
+    if (isAllMusicView) {
+        loadAllMusicFromJellyfin();
+    } else {
+        loadArtistTracks(currentModalArtist.name, currentModalArtist.id);
+    }
+}
+
 
 function updateSelectAllLabel() {
     const selectAllLabel = document.querySelector(".modal-select-all-label");
@@ -1099,6 +1254,8 @@ async function loadArtistTracks(artistName, artistId) {
             if (track.AlbumArtist) artists.add(track.AlbumArtist);
         });
 
+        tracks = sortTracks(tracks, currentSortOption);
+
         allTracks = [...tracks];
         totalTracks = allTracks.length;
         totalAlbums = albums.size;
@@ -1216,6 +1373,10 @@ function displayTracksWithoutAlbums(tracks) {
 
     if (!tracksContainer || !headerActions) return;
     tracksContainer.innerHTML = "";
+
+    const sortHeaders = createSortHeaders();
+    tracksContainer.appendChild(sortHeaders);
+
     setupHeaderActions(headerActions);
 
     if (!tracks || tracks.length === 0) {
@@ -1407,25 +1568,40 @@ function createTrackElement(track, index, showPosition = true) {
     trackTitle.className = "modal-track-title";
     trackTitle.textContent = track.Name || config.languageLabels.unknownTrack;
 
-    if (!showPosition) {
-        const trackArtist = document.createElement("div");
-        trackArtist.className = "modal-track-artist";
-        trackArtist.textContent = track.Artists?.join(", ") || track.AlbumArtist || config.languageLabels.artistUnknown;
-        trackInfo.appendChild(trackArtist);
+    const trackArtist = document.createElement("div");
+    trackArtist.className = "modal-track-artist";
+    trackArtist.textContent = track.Artists?.join(", ") || track.AlbumArtist || config.languageLabels.artistUnknown;
 
-        if (track.ProductionYear) {
-            const trackYear = document.createElement("div");
-            trackYear.className = "modal-track-year";
-            trackYear.textContent = track.ProductionYear;
-            trackInfo.appendChild(trackYear);
-        }
+    const trackAlbum = document.createElement("div");
+    trackAlbum.className = "modal-track-album";
+    trackAlbum.textContent = track.Album || config.languageLabels.unknownTrack;
+
+    const trackDateAdded = document.createElement("div");
+    trackDateAdded.className = "modal-track-date-added";
+    if (track.DateCreated) {
+        const date = new Date(track.DateCreated);
+        trackDateAdded.textContent = date.toLocaleDateString('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } else {
+        trackDateAdded.textContent = "-";
+    }
+
+    trackInfo.append(trackTitle, trackArtist, trackAlbum, trackDateAdded);
+
+    if (track.ProductionYear) {
+        const trackYear = document.createElement("div");
+        trackYear.className = "modal-track-year";
+        trackYear.textContent = track.ProductionYear;
+        trackInfo.appendChild(trackYear);
     }
 
     const trackDuration = document.createElement("div");
     trackDuration.className = "modal-track-duration";
     trackDuration.textContent = formatDuration(track);
 
-    trackInfo.prepend(trackTitle);
     trackElement.append(trackCheckbox, trackInfo, trackDuration);
 
     trackElement.addEventListener("click", (e) => {
@@ -1545,8 +1721,11 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
 
     if (show) {
         if (!artistModal.classList.contains("hidden")) {
+            artistName = currentModalArtist.name;
+            artistId = currentModalArtist.id;
         } else {
             selectedTrackIds = new Set();
+            currentModalArtist = { name: artistName, id: artistId };
         }
 
         const tracksContainer = document.querySelector("#artist-modal .modal-artist-tracks-container");
@@ -1592,6 +1771,7 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
         artistModal.classList.add("hidden");
         artistModal.setAttribute("aria-hidden", "true");
         document.body.style.overflow = "";
+        currentModalArtist = { name: "", id: null };
     }
 }
 
@@ -1608,8 +1788,106 @@ export function setupArtistClickHandler() {
                                 currentTrack?.ArtistId ||
                                 null;
 
+                currentModalArtist = { name: artistName, id: artistId };
                 await toggleArtistModal(true, artistName, artistId);
             }
         });
     }
+}
+
+function createSortHeaders() {
+    const headersContainer = document.createElement("div");
+    headersContainer.className = "modal-sort-headers";
+
+    const checkboxPlaceholder = document.createElement("div");
+    checkboxPlaceholder.className = "modal-header-checkbox";
+    headersContainer.appendChild(checkboxPlaceholder);
+
+    const titleHeader = createSortHeader(
+        "modal-header-title",
+        config.languageLabels.sortName || "Şarkı",
+        SORT_OPTIONS.ALPHABETICAL
+    );
+
+    const artistHeader = createSortHeader(
+        "modal-header-artist",
+        config.languageLabels.sortArtist || "Sanatçı",
+        SORT_OPTIONS.ARTIST
+    );
+
+    const yearHeader = createSortHeader(
+        "modal-header-year",
+        config.languageLabels.sortYear || "Yıl",
+        SORT_OPTIONS.ALBUM
+    );
+
+    const albumHeader = createSortHeader(
+        "modal-header-album",
+        config.languageLabels.sortAlbum || "Albüm",
+        SORT_OPTIONS.ALBUM
+    );
+
+    const durationHeader = createSortHeader(
+        "modal-header-duration",
+        config.languageLabels.sortDuration || "Süre",
+        SORT_OPTIONS.DURATION
+    );
+
+    const dateHeader = createSortHeader(
+        "modal-header-date",
+        config.languageLabels.sortDateAdded || "Eklenme",
+        SORT_OPTIONS.DATE_ADDED
+    );
+
+    headersContainer.append(
+        checkboxPlaceholder,
+        titleHeader,
+        artistHeader,
+        albumHeader,
+        dateHeader,
+        yearHeader,
+        durationHeader
+    );
+
+    return headersContainer;
+}
+
+function createSortHeader(className, text, sortOption) {
+    const header = document.createElement("div");
+    header.className = `modal-sort-header ${className}`;
+    header.textContent = text;
+    header.dataset.sortOption = sortOption;
+
+    if (currentSortOption === sortOption) {
+        header.classList.add("active");
+        const icon = document.createElement("i");
+        icon.className = sortStates[sortOption].asc ?
+            "fas fa-sort-amount-down" :
+            "fas fa-sort-amount-up";
+        header.appendChild(icon);
+    }
+
+    header.addEventListener("click", () => {
+        if (currentSortOption === sortOption) {
+            toggleSortDirection();
+        } else {
+            currentSortOption = sortOption;
+            refreshCurrentView();
+        }
+
+        document.querySelectorAll(".modal-sort-header").forEach(h => {
+            h.classList.remove("active");
+            const icon = h.querySelector("i");
+            if (icon) icon.remove();
+        });
+
+        header.classList.add("active");
+        const icon = document.createElement("i");
+        icon.className = sortStates[sortOption].asc ?
+            "fas fa-sort-amount-down" :
+            "fas fa-sort-amount-up";
+        header.appendChild(icon);
+    });
+
+    return header;
 }

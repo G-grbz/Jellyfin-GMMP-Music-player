@@ -1,4 +1,4 @@
-import { musicPlayerState } from "./state.js";
+import { musicPlayerState, resetShuffle } from "./state.js";
 import { getConfig } from "./configLoader.js";
 import { getAuthToken } from "./auth.js";
 import { shuffleArray } from "../utils/domUtils.js";
@@ -12,6 +12,7 @@ const BATCH_SIZE = config.gruplimit;
 
 export async function refreshPlaylist() {
   try {
+    resetShuffle();
     musicPlayerState.modernTitleEl.textContent = config.languageLabels.loading;
     musicPlayerState.modernArtistEl.textContent = "";
 
@@ -38,24 +39,41 @@ export async function refreshPlaylist() {
       musicPlayerState.isShuffled = true;
     }
 
-
     if (musicPlayerState.playlist.length > 0) {
       musicPlayerState.isPlayerVisible = true;
       musicPlayerState.modernPlayer.classList.add("visible");
       updateModernTrackInfo(musicPlayerState.playlist[0]);
       playTrack(0);
+      showNotification(
+        config.languageLabels.playlistRefreshed || "Oynatma listesi yenilendi",
+        2000
+      );
     } else {
       musicPlayerState.modernTitleEl.textContent = config.languageLabels.noMusicFound;
       musicPlayerState.modernArtistEl.textContent = config.languageLabels.tryRefreshing;
+      showNotification(
+        config.languageLabels.playlistEmpty || "Oynatma listesi boş",
+        2000,
+        'error'
+      );
     }
   } catch (err) {
     console.error(config.languageLabels.refreshError, err);
     musicPlayerState.modernTitleEl.textContent = config.languageLabels.errorOccurred;
-    musicPlayerState.modernArtistEl.textContent = err.message.includes("abort") ? config.languageLabels.requestTimeout : config.languageLabels.tryRefreshing;
+    musicPlayerState.modernArtistEl.textContent = err.message.includes("abort")
+      ? config.languageLabels.requestTimeout
+      : config.languageLabels.tryRefreshing;
     musicPlayerState.isPlayerVisible = true;
     musicPlayerState.modernPlayer.classList.add("visible");
+
+    showNotification(
+      config.languageLabels.refreshError || "Liste yenilenirken hata oluştu",
+      2000,
+      'error'
+    );
   }
 }
+
 
 async function addItemsToPlaylist(playlistId, itemIds, userId) {
   const token = getAuthToken();

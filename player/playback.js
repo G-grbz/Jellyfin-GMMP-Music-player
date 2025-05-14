@@ -9,7 +9,7 @@ import { updatePlaylistModal } from "../ui/playlistModal.js";
 import { showNotification } from "../ui/notification.js";
 import { updateProgress, updateDuration, setupAudioListeners } from "./progress.js";
 import { updateNextTracks } from "../ui/playerUI.js";
-
+import { refreshPlaylist } from "../core/playlist.js";
 
 const config = getConfig();
 const SEEK_RETRY_DELAY = 0;
@@ -62,14 +62,29 @@ function cleanupAudioListeners() {
 }
 
 function handleSongEnd() {
-  const { audio, userSettings, currentIndex, playlist } = musicPlayerState;
+  const { userSettings, currentIndex, playlist } = musicPlayerState;
 
-  switch(userSettings.repeatMode) {
+  if (userSettings.removeOnPlay) {
+    playlist.splice(currentIndex, 1);
+    updatePlaylistModal();
+  }
+
+  if (playlist.length === 0) {
+    updatePlaybackUI(false);
+    showNotification(
+      config.languageLabels.playlistEnded || "Oynatma listesi bitti, yenileniyor...",
+      2000,
+      'info'
+    );
+    return setTimeout(() => refreshPlaylist(), 500);
+  }
+
+  switch (userSettings.repeatMode) {
     case 'one':
-      audio.currentTime = 0;
-      audio.play()
+      musicPlayerState.audio.currentTime = 0;
+      musicPlayerState.audio.play()
         .then(() => updatePlaybackUI(true))
-        .catch(e => handlePlaybackError(e, 'repeat'));
+        .catch(err => handlePlaybackError(err, 'repeat'));
       break;
 
     case 'all':
@@ -77,13 +92,10 @@ function handleSongEnd() {
       break;
 
     default:
-      if (currentIndex < playlist.length - 1) {
-        playNext();
-      } else {
-        updatePlaybackUI(false);
-      }
+      playNext();
   }
 }
+
 
 export function togglePlayPause() {
   const { audio } = musicPlayerState;
@@ -104,7 +116,19 @@ export function togglePlayPause() {
 }
 
 export function playPrevious() {
-  const { currentIndex, playlist, audio } = musicPlayerState;
+  const { playlist, effectivePlaylist, userSettings, audio } = musicPlayerState;
+  const currentIndex = musicPlayerState.currentIndex;
+
+  if (playlist.length === 0) {
+    updatePlaybackUI(false);
+    showNotification(
+      config.languageLabels.playlistEnded || "Oynatma listesi bitti, yenileniyor...",
+      2000,
+      'info'
+    );
+    return refreshPlaylist();
+  }
+
   if (audio.currentTime > 3) {
     audio.currentTime = 0;
     showNotification(
@@ -115,25 +139,86 @@ export function playPrevious() {
     return;
   }
 
-  const newIndex = currentIndex - 1 < 0 ? playlist.length - 1 : currentIndex - 1;
-  playTrack(newIndex);
-}
+  if (userSettings.removeOnPlay) {
+    const removed = playlist.splice(currentIndex, 1);
+    const effIdx = effectivePlaylist.findIndex(t => t.Id === removed[0]?.Id);
+    if (effIdx > -1) effectivePlaylist.splice(effIdx, 1);
+    updatePlaylistModal();
 
-export function playNext() {
-  const { currentIndex, effectivePlaylist, userSettings } = musicPlayerState;
+    if (playlist.length === 0) {
+      updatePlaybackUI(false);
+      showNotification(
+        config.languageLabels.playlistEnded || "Oynatma listesi bitti, yenileniyor...",
+        2000,
+        'info'
+      );
+      return refreshPlaylist();
+    }
 
-  if (userSettings.shuffleMode) {
-    let randomIndex;
-    do {
-      randomIndex = Math.floor(Math.random() * effectivePlaylist.length);
-    } while (randomIndex === currentIndex && effectivePlaylist.length > 1);
-
-    playTrack(randomIndex);
-    return;
+    musicPlayerState.currentIndex = Math.min(currentIndex, playlist.length - 1);
   }
 
-  const newIndex = (currentIndex + 1) % effectivePlaylist.length;
-  playTrack(newIndex);
+  let prevIndex = musicPlayerState.currentIndex - 1;
+  if (prevIndex < 0) prevIndex = playlist.length - 1;
+
+  playTrack(prevIndex);
+}
+
+
+
+export function playNext() {
+  const { playlist, effectivePlaylist, userSettings, currentIndex } = musicPlayerState;
+
+  if (playlist.length === 0) {
+    updatePlaybackUI(false);
+    showNotification(
+      config.languageLabels.playlistEnded || "Oynatma listesi bitti, yenileniyor...",
+      2000,
+      'info'
+    );
+    return refreshPlaylist();
+  }
+  if (userSettings.removeOnPlay) {
+    playlist.splice(currentIndex, 1);
+    const effIdx = effectivePlaylist.findIndex(t => t.Id === musicPlayerState.currentTrackId);
+    if (effIdx > -1) effectivePlaylist.splice(effIdx, 1);
+    updatePlaylistModal();
+
+    if (playlist.length === 0) {
+      updatePlaybackUI(false);
+      showNotification(
+        config.languageLabels.playlistEnded || "Oynatma listesi bitti, yenileniyor...",
+        2000,
+        'info'
+      );
+      return refreshPlaylist();
+    }
+
+    const newIndex = Math.min(currentIndex, playlist.length - 1);
+    const nextIndex = userSettings.shuffleMode
+      ? (() => {
+          let rnd;
+          do {
+            rnd = Math.floor(Math.random() * effectivePlaylist.length);
+          } while (rnd === newIndex && effectivePlaylist.length > 1);
+          return rnd;
+        })()
+      : newIndex;
+
+    return playTrack(nextIndex);
+  }
+
+  const nextIndex = userSettings.shuffleMode
+    ? (() => {
+        let rnd;
+        do {
+          rnd = Math.floor(Math.random() * effectivePlaylist.length);
+        } while (rnd === currentIndex && effectivePlaylist.length > 1);
+        return rnd;
+      })()
+    : (currentIndex + 1) % effectivePlaylist.length;
+
+  playTrack(nextIndex);
 }
 
 export async function updateModernTrackInfo(track) {
@@ -385,3 +470,4 @@ function handleLoadedMetadata() {
     }, 1000);
   }
 }
+
