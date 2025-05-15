@@ -575,31 +575,32 @@ async function loadImageForItem(item, index) {
   const id = track.Id;
   const img = item.querySelector(".playlist-item-img");
 
+  const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+  img.style.backgroundImage = DEFAULT_ARTWORK;
+
   try {
-    if (musicPlayerState.id3ImageCache?.[id]) {
+    if (!musicPlayerState.id3ImageCache) musicPlayerState.id3ImageCache = {};
+    if (musicPlayerState.id3ImageCache[id]) {
       img.style.backgroundImage = `url('${musicPlayerState.id3ImageCache[id]}')`;
-      return;
-    }
-
-    const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
-    if (imageTag) {
-      const imageId = track.AlbumId || id;
-      const serverImageUrl = `${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
-      img.style.backgroundImage = `url('${serverImageUrl}')`;
-
-      if (!musicPlayerState.id3ImageCache) musicPlayerState.id3ImageCache = {};
-      musicPlayerState.id3ImageCache[id] = serverImageUrl;
       return;
     }
 
     const tags = await readID3Tags(id);
     if (tags?.pictureUri) {
-      img.style.backgroundImage = `url('${tags.pictureUri}')`;
-      if (!musicPlayerState.id3ImageCache) musicPlayerState.id3ImageCache = {};
       musicPlayerState.id3ImageCache[id] = tags.pictureUri;
+      img.style.backgroundImage = `url('${tags.pictureUri}')`;
+      return;
     }
   } catch (error) {
-    console.error("Error loading image for track", id, error);
+    console.warn(`ID3 görüntü yüklenirken hata (ID: ${id}):`, error);
+  }
+
+  const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
+  if (imageTag) {
+    const imageId = track.AlbumId || id;
+    const serverImageUrl = `${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
+    img.style.backgroundImage = `url('${serverImageUrl}')`;
+    musicPlayerState.id3ImageCache[id] = serverImageUrl;
   }
 }
 
