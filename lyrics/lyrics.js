@@ -350,13 +350,21 @@ async function updateSingleTrackLyrics(trackId) {
             musicPlayerState.currentIndex = originalIndex;
 
             if (musicPlayerState.lyricsCache[trackId]) {
-                showNotification(config.languageLabels.syncSingle || "Şarkı sözü güncellendi", 3000, 'success');
+              showNotification(
+                `<i class="fas fa-subtitles"></i> ${config.languageLabels.syncSingle}`,
+                2000,
+                'db'
+              );
                 return true;
             }
         }
     } catch (err) {
         console.error('Şarkı sözü güncelleme hatası:', err);
-        showNotification(config.languageLabels.syncSingleError || "Şarkı sözü güncelleme başarısız!", 3000, 'error');
+        showNotification(
+                `<i class="fas fa-subtitles-slash"></i> ${config.languageLabels.syncSingleError}`,
+                2000,
+                'error'
+              );
     }
     return false;
 }

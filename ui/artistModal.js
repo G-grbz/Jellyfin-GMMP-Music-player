@@ -167,11 +167,19 @@ export function createArtistModal() {
     fetchNewMusicBtn.title = config.languageLabels.syncDB || "Veri tabanını senkronize et";
     fetchNewMusicBtn.onclick = async () => {
         fetchNewMusicBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        showNotification(config.languageLabels.syncStarted || "Senkronizasyon başlatıldı...", 3000, 'db');
+        showNotification(
+    `<i class="fas fa-database"></i> ${config.languageLabels.syncStarted || "Senkronizasyon başlatıldı..."}`,
+    3000,
+    'db'
+);
 
         try {
             await checkForNewMusic();
-            showNotification(config.languageLabels.syncCompleted || "Senkronizasyon tamamlandı", 3000, 'success');
+            showNotification(
+                    `<i class="fas fa-check-circle"></i> ${config.languageLabels.syncCompleted || "Senkronizasyon tamamlandı"}`,
+                    3000,
+                    'db'
+                    );
         } catch (error) {
             console.error('Senkronizasyon hatası:', error);
         } finally {
@@ -822,15 +830,15 @@ export async function checkForNewMusic() {
 
             if (newTrackIds.size > 0) {
                 showNotification(
-                    `${newTrackIds.size} ${config.languageLabels.dbnewTracksAdded || "yeni şarkı eklendi"}`,
-                    4000,
-                    'db'
-                );
-            }
+                        `<i class="fas fa-database"></i> ${newTrackIds.size} ${config.languageLabels.dbnewTracksAdded || "yeni şarkı eklendi"}`,
+                            4000,
+                            'db'
+                            );
+                        }
 
             if (deletedTrackIds.size > 0) {
                 showNotification(
-                    `${deletedTrackIds.size} ${config.languageLabels.dbtracksRemoved || "şarkı silindi"}`,
+                    `<i class="fas fa-database"></i> ${deletedTrackIds.size} ${config.languageLabels.dbtracksRemoved || "şarkı silindi"}`,
                     4000,
                     'db'
                 );
@@ -858,7 +866,7 @@ export async function checkForNewMusic() {
     } catch (error) {
         console.error('Müzik senkronizasyonu sırasında hata:', error);
         showNotification(
-            config.languageLabels.syncError || "Senkronizasyon sırasında hata oluştu",
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.syncError || "Senkronizasyon sırasında hata oluştu"}`,
             4000,
             'error'
         );
@@ -889,8 +897,9 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.serviceWorker.addEventListener('message', (event) => {
             if (event.data.type === 'newMusicAdded') {
                 showNotification(
-                    `${event.data.count} ${config.languageLabels.dbnewTracksAdded || "yeni şarkı eklendi"}`,
-                    "info"
+                    `<i class="fas fa-database"></i> ${newTrackIds.size} ${config.languageLabels.dbnewTracksAdded || "yeni şarkı eklendi"}`,
+                    4000,
+                    'db'
                 );
             }
         });
@@ -899,7 +908,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function showSaveToPlaylistModal() {
     if (selectedTrackIds.size === 0) {
-        showNotification(config.languageLabels.noSelection || "Hiç şarkı seçilmedi", "warning");
+        showNotification(
+            `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.noSelection || "Hiç şarkı seçilmedi"}`,
+            3000,
+            'warning'
+        );
         return;
     }
 
@@ -1030,13 +1043,18 @@ async function showSaveToPlaylistModal() {
                 playlistId
             );
             showNotification(
-                `${tracksToSave.length} ${config.languageLabels.track} ${isNew ? config.languageLabels.playlistCreatedSuccessfully : config.languageLabels.addingsuccessful}`,
-                "addlist"
+                `<i class="fas fa-check-circle"></i> ${tracksToSave.length} ${config.languageLabels.track} ${isNew ? config.languageLabels.playlistCreatedSuccessfully :            config.languageLabels.addingsuccessful}`,
+                3000,
+                'addlist'
             );
             closeModal();
         } catch (err) {
             console.error(err);
-            showNotification(config.languageLabels.playlistSaveError, "error");
+            showNotification(
+                `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.playlistSaveError}`,
+                4000,
+                'error'
+            );
         }
     };
 
@@ -1624,10 +1642,18 @@ function handleTrackClick(track) {
         newOriginal.splice(currentIndex + 1, 0, track);
         musicPlayerState.originalPlaylist = newOriginal;
 
-        showNotification(config.languageLabels.addingsuccessful, 2000, 'addplaylist');
+        showNotification(
+                `<i class="fas fa-plus-circle"></i> ${config.languageLabels.addingsuccessful}`,
+                2000,
+                'addlist'
+            );
         playTrack(currentIndex + 1);
     } else {
-        showNotification(config.languageLabels.alreadyInTrack, 2000, 'addplaylist');
+        showNotification(
+                `<i class="fas fa-info-circle"></i> ${config.languageLabels.alreadyInTrack}`,
+                2000,
+                'addlist'
+                );
         playTrack(existingIndex);
     }
 }
@@ -1644,7 +1670,11 @@ function handlePlaySelected() {
 );
 
 if (uniqueTracks.length === 0) {
-    showNotification(config.languageLabels.noTracksToSave, 2000, 'addplaylist');
+    showNotification(
+    `<i class="fas fa-info-circle"></i> ${config.languageLabels.noTracksToSave}`,
+    2000,
+    'addlist'
+);
     return;
 }
 
@@ -1659,12 +1689,11 @@ if (duplicateCount > 0) {
 
     let message;
     if (duplicateCount <= 3) {
-        message = `${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')}`;
+        message = `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')}`;
     } else {
-        message = `${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')} ${config.languageLabels.ayrica} ${remainingCount} ${config.languageLabels.moreTracks}`;
-    }
-
-    showNotification(message, 4000, 'addlist');
+        message = `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')} ${config.languageLabels.ayrica} ${remainingCount} ${config.languageLabels.moreTracks}`;
+        }
+        showNotification(message, 4000, 'addlist');
 }
 
     musicPlayerState.playlist.push(...uniqueTracks);
@@ -1680,7 +1709,11 @@ if (duplicateCount > 0) {
         musicPlayerState.isShuffled = true;
     }
 
-    showNotification(`${uniqueTracks.length} ${config.languageLabels.tracks}`, 2000, 'addplaylist');
+    showNotification(
+        `<i class="fas fa-music"></i> ${uniqueTracks.length} ${config.languageLabels.tracks}`,
+        2000,
+        'addlist'
+    );
     toggleArtistModal(false);
     updateNextTracks();
 }

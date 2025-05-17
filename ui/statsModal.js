@@ -36,11 +36,18 @@ async function updateLyricsDatabase() {
         }
         musicPlayerState.playlist = originalPlaylist;
         musicPlayerState.currentIndex = originalIndex;
-
-        showNotification(`${updatedCount} ${config.languageLabels.fetchLyrics || "şarkı sözü veri tabanına eklendi"}`, 3000, 'success');
+        showNotification(
+            `<i class="fas fa-music"></i> ${updatedCount} ${config.languageLabels.fetchLyrics || "şarkı sözü veri tabanına eklendi"}`,
+            3000,
+            'db'
+            );
         await loadStatsIntoModal();
     } catch (err) {
-        showNotification(config.languageLabels.fetchLyricsError || "Şarkı sözleri veri tabanına eklenemedi", 3000, 'error');
+        showNotification(
+            `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.fetchLyricsError || "Şarkı sözleri veri tabanına eklenemedi"}`,
+            3000,
+            'error'
+        );
     }
 }
 
@@ -274,7 +281,11 @@ export function showStatsModal() {
         await loadStatsIntoModal(true);
     } catch (error) {
         console.error('Yenileme sırasında hata:', error);
-        showNotification(config.languageLabels.refreshError || "Yenileme sırasında hata oluştu", 3000, 'error');
+        showNotification(
+            `<i class="fas fa-sync-alt"></i> ${config.languageLabels.refreshError || "Yenileme sırasında hata oluştu"}`,
+            3000,
+            'error'
+            );
     } finally {
         refreshIcon.classList.remove("fa-spin");
     }
@@ -327,7 +338,11 @@ export function showStatsModal() {
             );
         } catch (error) {
             console.error('Eklenenler yüklenirken hata:', error);
-            showNotification(config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu", 3000, 'error');
+            showNotification(
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu"}`,
+            3000,
+            'error'
+            );
         } finally {
             button.innerHTML = originalContent;
             button.disabled = false;
@@ -354,7 +369,11 @@ export function showStatsModal() {
             );
         } catch (error) {
             console.error('Silinenler yüklenirken hata:', error);
-            showNotification(config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu", 3000, 'error');
+            showNotification(
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu"}`,
+            3000,
+            'error'
+            );
         } finally {
             button.innerHTML = originalContent;
             button.disabled = false;
@@ -392,22 +411,20 @@ export function showStatsModal() {
                 req.onsuccess = resolve;
                 req.onerror = reject;
             });
-
             showNotification(
-                config.languageLabels.databaseCleared || "Veritabanı başarıyla temizlendi",
+                `<i class="fas fa-check-circle"></i> ${config.languageLabels.databaseCleared || "Veritabanı başarıyla temizlendi"}`,
                 3000,
-                'success'
-            );
-
+                'db'
+                );
             cachedStats = null;
             await loadStatsIntoModal();
 
         } catch (error) {
             console.error('Veritabanı temizlenirken hata:', error);
             showNotification(
-                config.languageLabels.clearDatabaseError || "Veritabanı temizlenirken hata oluştu",
-                3000,
-                'error'
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.clearDatabaseError || "Veritabanı temizlenirken hata oluştu"}`,
+            3000,
+            'error'
             );
         }
     });
@@ -454,11 +471,19 @@ async function backupDatabase() {
         setTimeout(() => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            showNotification(config.languageLabels.backupSuccess || "Veritabanı başarıyla yedeklendi", 3000, 'success');
+            showNotification(
+            `<i class="fas fa-check-circle"></i> ${config.languageLabels.backupSuccess || "Veritabanı başarıyla yedeklendi"}`,
+            3000,
+            'db'
+            );
         }, 100);
     } catch (error) {
         console.error('Yedekleme hatası:', error);
-        showNotification(config.languageLabels.backupError || "Yedekleme sırasında hata oluştu", 3000, 'error');
+        showNotification(
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.backupError || "Yedekleme sırasında hata oluştu"}`,
+            3000,
+            'error'
+            );
     } finally {
         backupBtn.innerHTML = originalBackupText;
         backupBtn.disabled = false;
@@ -494,7 +519,11 @@ async function handleRestoreFile(event) {
             throw new Error(config.languageLabels.invalidBackupFile || "Geçersiz yedek dosyası");
         }
 
-        showNotification(config.languageLabels.restoreStarted || "Geri yükleme başlatıldı...", 3000, 'db');
+        showNotification(
+            `<i class="fas fa-database"></i> ${config.languageLabels.restoreStarted || "Geri yükleme başlatıldı..."}`,
+            3000,
+            'db'
+            );
         const updateProgress = (percentage, message) => {
             const fill = progressContainer.querySelector('.restore-progress-fill');
             const text = progressContainer.querySelector('.restore-progress-text');
@@ -556,10 +585,9 @@ async function handleRestoreFile(event) {
             } catch (deletedItemsError) {
                 console.warn('Silinmiş öğeler geri yüklenirken hata:', deletedItemsError);
                 showNotification(
-                    config.languageLabels.restorePartialSuccess ||
-                    "Şarkılar geri yüklendi ancak silinmiş öğeler yüklenemedi",
-                    4000,
-                    'warning'
+                `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.restorePartialSuccess || "Şarkılar geri yüklendi ancak silinmiş öğeler yüklenemedi"}`,
+                4000,
+                'db'
                 );
             }
         }
@@ -590,16 +618,20 @@ async function handleRestoreFile(event) {
         }
 
         updateProgress(100, config.languageLabels.restoreComplete || "Geri yükleme tamamlandı!");
-        showNotification(config.languageLabels.restoreSuccess || "Veritabanı başarıyla geri yüklendi", 3000, 'success');
+        showNotification(
+            `<i class="fas fa-check-circle"></i> ${config.languageLabels.restoreSuccess || "Veritabanı başarıyla geri yüklendi"}`,
+            3000,
+            'db'
+        );
         await loadStatsIntoModal(true);
 
     } catch (error) {
         console.error('Geri yükleme hatası:', error);
-        showNotification(
-            (config.languageLabels.restoreError || "Geri yükleme sırasında hata oluştu: ") + error.message,
+       showNotification(
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.restoreError || "Geri yükleme sırasında hata oluştu:"} ${error.message}`,
             5000,
             'error'
-        );
+            );
     } finally {
         restoreBtn.innerHTML = originalRestoreText;
         restoreBtn.disabled = false;
@@ -695,7 +727,7 @@ async function loadStatsIntoModal(forceRefresh = false) {
     } catch (error) {
         console.error('İstatistikler yüklenirken hata:', error);
         showNotification(
-            config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu",
+            `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.loadStatsError || "İstatistikler yüklenirken hata oluştu"}`,
             3000,
             'error'
         );

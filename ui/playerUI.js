@@ -11,6 +11,7 @@ import { showJellyfinPlaylistsModal } from '../core/jellyfinPlaylists.js';
 import { togglePlayerVisibility } from '../utils/mainIndex.js';
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
 import { toggleArtistModal, setupArtistClickHandler, checkForNewMusic } from "./artistModal.js";
+import { showGenreFilterModal } from "./genreFilterModal.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
@@ -126,6 +127,13 @@ export function createModernPlayerUI() {
    removeOnPlayBtn.innerHTML = '<i class="fas fa-trash-list" style="color:#e91e63"></i>';
  }
   const refreshBtn = createButton({ iconClass: "fas fa-sync-alt", title: config.languageLabels.refreshPlaylist, onClick: refreshPlaylist });
+
+  const genreFilterBtn = createButton({
+  className: "genre-filter-btn",
+  iconClass: "fas fa-filter",
+  title: config.languageLabels.filterByGenre || "Türe göre filtrele",
+  onClick: showGenreFilterModal
+  });
   const prevBtn = createButton({ iconClass: "fas fa-step-backward", title: config.languageLabels.previousTrack, onClick: playPrevious });
   const playPauseBtn = createButton({ className: "main", iconClass: "fas fa-play", title: config.languageLabels.playPause, onClick: togglePlayPause, id: "play-pause-btn" });
   const nextBtn = createButton({ iconClass: "fas fa-step-forward", title: config.languageLabels.nextTrack, onClick: playNext });
@@ -163,7 +171,7 @@ export function createModernPlayerUI() {
   const controls = document.createElement("div");
   controls.className = "player-controls";
 
-  const controlElements = [repeatBtn, shuffleBtn, removeOnPlayBtn, refreshBtn, prevBtn, playPauseBtn, nextBtn, lyricsBtn, volumeBtn];
+  const controlElements = [repeatBtn, shuffleBtn, removeOnPlayBtn, refreshBtn, genreFilterBtn, prevBtn, playPauseBtn, nextBtn, lyricsBtn, volumeBtn];
 
   if (isMobile) {
     const scrollableControls = document.createElement("div");
@@ -251,7 +259,7 @@ export function createModernPlayerUI() {
 }
 
 export async function updateNextTracks() {
-  const { nextTracksList, playlist, currentIndex, nextTracksContainer } = musicPlayerState;
+  const { nextTracksList, playlist, currentIndex, nextTracksContainer, id3ImageCache = {} } = musicPlayerState;
   if (!nextTracksList || !playlist) return;
 
   const existingItems = Array.from(nextTracksList.querySelectorAll('.next-track-item'));
@@ -259,86 +267,99 @@ export async function updateNextTracks() {
 
   existingItems.forEach(item => {
     const trackId = item.dataset.trackId;
-    const shouldKeep = playlist.some((track, index) => {
+    const isStillNeeded = playlist.some((track, index) => {
       const relativeIndex = (index - currentIndex + playlist.length) % playlist.length;
       return track.Id === trackId && relativeIndex > 0 && relativeIndex <= 3;
     });
 
-    if (!shouldKeep) {
+    if (!isStillNeeded) {
       item.classList.remove('visible');
       setTimeout(() => item.remove(), 300);
     }
   });
 
   const nextTracksName = nextTracksContainer.querySelector('.next-tracks-name');
-  nextTracksName.classList.add('hidden');
+  nextTracksName?.classList.add('hidden');
 
   const maxNextTracks = 3;
-  let tracksLoaded = 0;
+  let addedCount = 0;
 
-  if (!musicPlayerState.id3ImageCache) musicPlayerState.id3ImageCache = {};
-
-  for (let i = 1; i <= maxNextTracks; i++) {
-    const nextIndex = (currentIndex + i) % playlist.length;
+  for (let offset = 1; offset <= maxNextTracks; offset++) {
+    const nextIndex = (currentIndex + offset) % playlist.length;
     const track = playlist[nextIndex];
-    if (!track) continue;
+    if (!track || existingTrackIds.includes(track.Id)) continue;
 
-    if (existingTrackIds.includes(track.Id)) {
-      tracksLoaded++;
-      continue;
-    }
+    try {
+      const trackElement = document.createElement('div');
+      trackElement.className = 'next-track-item hidden';
+      trackElement.dataset.trackId = track.Id;
+      trackElement.title = track.Name || config.languageLabels.unknownTrack;
 
-    const trackElement = document.createElement('div');
-    trackElement.className = 'next-track-item hidden';
-    trackElement.title = track.Name || config.languageLabels.unknownTrack;
-    trackElement.dataset.trackId = track.Id;
+      const coverElement = document.createElement('div');
+      coverElement.className = 'next-track-cover';
+      coverElement.style.backgroundImage = DEFAULT_ARTWORK;
 
-    const coverElement = document.createElement('div');
-    coverElement.className = 'next-track-cover';
-    coverElement.style.backgroundImage = DEFAULT_ARTWORK;
-
-    const trackId = track.Id;
-    if (musicPlayerState.id3ImageCache[trackId]) {
-      coverElement.style.backgroundImage = `url('${musicPlayerState.id3ImageCache[trackId]}')`;
-    } else {
-      try {
-        const tags = await readID3Tags(trackId);
-        if (tags?.pictureUri) {
-          musicPlayerState.id3ImageCache[trackId] = tags.pictureUri;
-          coverElement.style.backgroundImage = `url('${tags.pictureUri}')`;
-        } else {
-          const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
-          if (imageTag) {
-            const imageId = track.AlbumId || trackId;
-            coverElement.style.backgroundImage =
-              `url('${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}')`;
-          }
-        }
-      } catch (e) {
-        console.error('Kapak resmi yüklenirken hata:', e);
+      const imageUri = await getTrackImage(track, id3ImageCache);
+      if (imageUri) {
+        coverElement.style.backgroundImage = `url('${imageUri}')`;
       }
+
+      coverElement.onclick = e => {
+        e.stopPropagation();
+        playTrack(nextIndex);
+      };
+
+      const titleElement = document.createElement('div');
+      titleElement.className = 'next-track-title';
+      titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
+      titleElement.onclick = e => {
+        e.stopPropagation();
+        playTrack(nextIndex);
+      };
+
+      trackElement.append(coverElement, titleElement);
+      nextTracksList.appendChild(trackElement);
+
+      setTimeout(() => {
+        trackElement.classList.remove('hidden');
+        trackElement.classList.add('visible');
+      }, offset * 200);
+
+      addedCount++;
+    } catch (error) {
+      console.error(`Track #${offset} yüklenirken hata:`, error);
     }
-
-    coverElement.onclick = e => { e.stopPropagation(); playTrack(nextIndex); };
-
-    const titleElement = document.createElement('div');
-    titleElement.className = 'next-track-title';
-    titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
-    titleElement.onclick = e => { e.stopPropagation(); playTrack(nextIndex); };
-
-    trackElement.append(coverElement, titleElement);
-    nextTracksList.appendChild(trackElement);
-
-    setTimeout(() => {
-      trackElement.classList.remove('hidden');
-      trackElement.classList.add('visible');
-      tracksLoaded++;
-      if (tracksLoaded === Math.min(maxNextTracks, playlist.length - 1)) {
-        setTimeout(() => {
-          nextTracksName.classList.remove('hidden');
-          nextTracksName.classList.add('visible');
-        }, 200);
-      }
-    }, 200 * i);
   }
+
+  if (addedCount > 0) {
+    setTimeout(() => {
+      nextTracksName?.classList.remove('hidden');
+      nextTracksName?.classList.add('visible');
+    }, (addedCount + 1) * 200);
+  }
+
+  musicPlayerState.id3ImageCache = id3ImageCache;
+}
+
+async function getTrackImage(track, cache) {
+  const trackId = track.Id;
+  if (cache[trackId]) return cache[trackId];
+
+  try {
+    const tags = await readID3Tags(trackId);
+
+    if (tags?.pictureUri) {
+      cache[trackId] = tags.pictureUri;
+      return tags.pictureUri;
+    }
+  } catch (e) {
+    console.warn(`ID3 etiketi okunamadı (ID: ${trackId})`, e);
+  }
+  const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
+  const imageId = track.AlbumId || trackId;
+  if (imageTag) {
+    return `${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
+  }
+
+  return null;
 }

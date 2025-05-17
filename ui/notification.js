@@ -4,12 +4,27 @@ const config = getConfig();
 let notificationQueue = [];
 let isShowing = false;
 
-export function showNotification(message, duration = 2000, group = null) {
-  if (group) {
-    notificationQueue = notificationQueue.filter(n => n.group !== group);
+function getNotificationClass(type) {
+  const typeMap = {
+    success: 'success',
+    error: 'error',
+    warning: 'warning',
+    info: 'info',
+    tur: 'info',
+    kontrol: 'info',
+    addlist: 'addlist',
+    db: 'db',
+    default: ''
+  };
+  return typeMap[type] || typeMap.default;
+}
+
+export function showNotification(message, duration = 2000, type = 'default') {
+  if (type !== 'default') {
+    notificationQueue = notificationQueue.filter(n => n.type !== type);
   }
 
-  notificationQueue.push({ message, duration, group });
+  notificationQueue.push({ message, duration, type });
 
   if (!isShowing) {
     processQueue();
@@ -23,26 +38,28 @@ function processQueue() {
   }
 
   isShowing = true;
-  const { message, duration } = notificationQueue.shift();
+  const { message, duration, type } = notificationQueue.shift();
 
-  let container = document.querySelector('.player-notifications-container');
+  let container = document.querySelector('.notifications-container');
   if (!container) {
     container = document.createElement('div');
-    container.className = 'player-notifications-container';
+    container.className = 'notifications-container';
     document.body.appendChild(container);
   }
 
   const notification = document.createElement('div');
-  notification.className = 'player-notification';
-  notification.textContent = message;
+  notification.className = `notification ${getNotificationClass(type)}`;
+  notification.innerHTML = message;
 
   container.appendChild(notification);
 
   requestAnimationFrame(() => {
+    notification.style.transform = 'translateY(0)';
     notification.style.opacity = '1';
   });
 
   setTimeout(() => {
+    notification.style.transform = 'translateY(20px)';
     notification.style.opacity = '0';
     setTimeout(() => {
       notification.remove();
@@ -50,6 +67,6 @@ function processQueue() {
         container.remove();
       }
       processQueue();
-    }, 1000);
+    }, 300);
   }, duration);
 }

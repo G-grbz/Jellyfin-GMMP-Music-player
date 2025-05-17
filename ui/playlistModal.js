@@ -575,7 +575,7 @@ async function loadImageForItem(item, index) {
   const id = track.Id;
   const img = item.querySelector(".playlist-item-img");
 
-  const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+  const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
   img.style.backgroundImage = DEFAULT_ARTWORK;
 
   try {
@@ -645,10 +645,18 @@ export function showRemoveConfirmModal(trackIndex, trackName) {
 
       if (playlistId) {
         await removeItemsFromPlaylist(playlistId, [trackId]);
-        showNotification(config.languageLabels.trackRemoved || "Parça kaldırıldı", "success");
+        showNotification(
+        `<i class="fas fa-check-circle"></i> ${config.languageLabels.trackRemoved || "Parça kaldırıldı"}`,
+        3000,
+        'success'
+      );
         updateNextTracks();
       } else {
-        showNotification(config.languageLabels.trackRemovedLocal || "Parça listeden kaldırıldı", "info");
+        showNotification(
+          `<i class="fas fa-check-circle"></i> ${config.languageLabels.trackRemovedLocal || "Parça listeden kaldırıldı"}`,
+          3000,
+          'success'
+      );
         updateNextTracks();
       }
 
@@ -657,10 +665,9 @@ export function showRemoveConfirmModal(trackIndex, trackName) {
     } catch (err) {
       console.error(err);
       showNotification(
-        playlistId
-          ? config.languageLabels.removeError     || "Kaldırma hatası"
-          : config.languageLabels.removeLocalError|| "Yerel silme hatası",
-        "error"
+        `<i class="fas fa-exclamation-circle"></i> ${playlistId ? config.languageLabels.removeError || "Kaldırma hatası" : config.languageLabels.removeLocalError || "Yerel silme hatası"}`,
+        3000,
+        'error'
       );
     } finally {
       overlay.remove();
@@ -678,7 +685,11 @@ export function showRemoveSelectedConfirmModal() {
   const selected = Array.from(musicPlayerState.selectedTracks);
   const count    = selected.length;
   if (!count) {
-    showNotification(config.languageLabels.noSelection || "Hiç parça seçilmedi", "warning");
+    showNotification(
+    `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.noSelection || "Hiç parça seçilmedi"}`,
+    3000,
+    'warning'
+);
     return;
   }
 
@@ -708,13 +719,15 @@ export function showRemoveSelectedConfirmModal() {
       if (playlistId) {
         await removeItemsFromPlaylist(playlistId, trackIds);
         showNotification(
-          `${count} ${config.languageLabels.tracksRemoved}`    || `${count} parça kaldırıldı`,
-          "info"
-        );
+          `<i class="fas fa-check-circle"></i> ${count} ${config.languageLabels.tracksRemoved || "parça kaldırıldı"}`,
+            2000,
+            'success'
+          );
       } else {
         showNotification(
-          `${count} ${config.languageLabels.tracksRemovedLocal}` || `${count} parça listeden kaldırıldı`,
-          "info"
+        `<i class="fas fa-info-circle"></i> ${count} ${config.languageLabels.tracksRemovedLocal || "parça listeden kaldırıldı"}`,
+        2000,
+        'info'
         );
       }
 
@@ -725,10 +738,9 @@ export function showRemoveSelectedConfirmModal() {
     } catch (err) {
       console.error(err);
       showNotification(
-        playlistId
-          ? config.languageLabels.removeError     || "Kaldırma hatası"
-          : config.languageLabels.removeLocalError || "Yerel silme hatası",
-        "error"
+        `<i class="fas fa-exclamation-circle"></i> ${playlistId ? config.languageLabels.removeError || "Kaldırma hatası" : config.languageLabels.removeLocalError || "Yerel silme hatası"}`,
+        3000,
+        'error'
       );
     } finally {
       overlay.remove();

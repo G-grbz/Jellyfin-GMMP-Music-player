@@ -38,7 +38,11 @@ function closeModal() {
 export async function fetchJellyfinPlaylists() {
   const authToken = getAuthToken();
   if (!authToken) {
-    showNotification(config.languageLabels.authRequired);
+    showNotification(
+    `<i class="fas fa-lock"></i> ${config.languageLabels.authRequired}`,
+    2000,
+    'warning'
+    );
     return [];
   }
 
@@ -62,7 +66,12 @@ export async function fetchJellyfinPlaylists() {
     }));
   } catch (error) {
     console.error("Çalma listesi getirme hatası:", error);
-    showNotification(config.languageLabels.playlistFetchError);
+    showNotification(
+    `<i class="fas fa-regular fa-hexagon-exclamation"></i> ${config.languageLabels.playlistFetchError}`,
+    2000,
+    'error'
+  );
+
     return [];
   }
 }
@@ -75,7 +84,11 @@ function getStreamUrl(itemId) {
 export async function playJellyfinPlaylist(playlistId) {
     const authToken = getAuthToken();
     if (!authToken) {
-        showNotification(config.languageLabels.authRequired);
+        showNotification(
+        `<i class="fas fa-lock"></i> ${config.languageLabels.authRequired}`,
+          2000,
+          'warning'
+        );
         return;
     }
 
@@ -92,7 +105,11 @@ export async function playJellyfinPlaylist(playlistId) {
         const items = data.Items || [];
 
         if (!items.length) {
-            showNotification(config.languageLabels.emptyPlaylist);
+            showNotification(
+            `<i class="fas fa-info-circle"></i> ${config.languageLabels.emptyPlaylist}`,
+              2000,
+              'info'
+            );
             return;
         }
 
@@ -139,12 +156,20 @@ export async function playJellyfinPlaylist(playlistId) {
 
         updatePlaylistModal();
         resetShuffle();
-        showNotification(`${items.length} ${config.languageLabels.tracks}`);
+        showNotification(
+      `<i class="fas fa-solid fa-guitars"></i> ${items.length} ${config.languageLabels.tracks}`,
+      2000,
+      'kontrol'
+    );
         playTrack(0);
 
     } catch (error) {
         console.error("Çalma listesi oynatma hatası:", error);
-        showNotification(config.languageLabels.playlistPlayError);
+        showNotification(
+      `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.playlistPlayError}`,
+      2000,
+      'error'
+      );
     }
 }
 
@@ -156,7 +181,11 @@ export async function showJellyfinPlaylistsModal() {
 
   const playlists = await fetchJellyfinPlaylists();
   if (!playlists.length) {
-    showNotification(config.languageLabels.noPlaylistsFound);
+    showNotification(
+    `<i class="fas fa-info-circle"></i> ${config.languageLabels.noPlaylistsFound}`,
+    2000,
+    'info'
+    );
     return;
   }
 
@@ -211,7 +240,11 @@ export async function showJellyfinPlaylistsModal() {
     const success = await deleteJellyfinPlaylist(pl.id);
     if (success) {
       item.remove();
-      showNotification(config.languageLabels.playlistDeleted);
+      showNotification(
+      `<i class="fas fa-check-circle"></i> ${config.languageLabels.playlistDeleted}`,
+      2000,
+      'success'
+      );
     }
   });
 });
@@ -250,7 +283,11 @@ export async function showJellyfinPlaylistsModal() {
 async function deleteJellyfinPlaylist(playlistId) {
   const authToken = getAuthToken();
   if (!authToken) {
-    showNotification(config.languageLabels.authRequired);
+    showNotification(
+    `<i class="fas fa-lock"></i> ${config.languageLabels.authRequired}`,
+    2000,
+    'warning'
+  );
     return false;
   }
 
@@ -267,7 +304,11 @@ async function deleteJellyfinPlaylist(playlistId) {
     }
     return true;
   } catch (error) {
-    showNotification(config.languageLabels.playlistDeleteError);
+    showNotification(
+      `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.playlistDeleteError}`,
+      2000,
+      'error'
+      );
     return false;
   }
 }

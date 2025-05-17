@@ -32,7 +32,11 @@ const updatePlaybackUI = (isPlaying) => {
 
 const handlePlaybackError = (error, action = 'play') => {
   console.error(`Oynatma sırasında hata oluştu ${action}:`, error);
-  showNotification(config.languageLabels.playbackError);
+  showNotification(
+  `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.playbackError || "Oynatma Hatası"}`,
+  3000,
+  'error'
+);
   setTimeout(playNext, SEEK_RETRY_DELAY);
 };
 
@@ -132,10 +136,10 @@ export function playPrevious() {
   if (audio.currentTime > 3) {
     audio.currentTime = 0;
     showNotification(
-      `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-      2000,
-      'playnow'
-    );
+  `<i class="fas fa-music" style="margin-right: 8px;"></i>${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
+  2000,
+  'kontrol'
+);
     return;
   }
 
@@ -401,10 +405,10 @@ export function playTrack(index) {
   musicPlayerState.currentAlbumName = track.Album || config.languageLabels.unknownAlbum;
 
   showNotification(
-    `${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-    2000,
-    'playnow'
-  );
+  `<i class="fas fa-music" style="margin-right: 8px;"></i>${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
+  2000,
+  'kontrol'
+);
 
   updateModernTrackInfo(track);
   updatePlaylistModal();
@@ -438,7 +442,11 @@ function getAudioUrl(track) {
 
     const authToken = getAuthToken();
     if (!authToken) {
-      showNotification(config.languageLabels.authRequired);
+      showNotification(
+      `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.authRequired || "Kimlik doğrulama hatası"}`,
+      3000,
+      'error'
+    );
       return null;
     }
 
@@ -470,4 +478,3 @@ function handleLoadedMetadata() {
     }, 1000);
   }
 }
-

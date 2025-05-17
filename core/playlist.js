@@ -19,56 +19,107 @@ export async function refreshPlaylist() {
     const token = getAuthToken();
     if (!token) throw new Error(config.languageLabels.noApiToken);
 
-    const response = await fetch(
-      `/Items?IncludeItemTypes=Audio&Recursive=true&Limit=${config.muziklimit}&SortBy=${musicPlayerState.userSettings.shuffle ? 'Random' : 'Random'}`,
-      { headers: { "X-Emby-Token": token } }
-    );
+    const genres = musicPlayerState.selectedGenres || [];
+    let items = [];
 
-    if (!response.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+    const headers = { "X-Emby-Token": token };
+    const baseQuery = "IncludeItemTypes=Audio&Recursive=true&SortBy=Random";
 
-    const data = await response.json();
-    musicPlayerState.playlist = data.Items || [];
-    musicPlayerState.originalPlaylist = [...musicPlayerState.playlist];
-    musicPlayerState.effectivePlaylist = [
-      ...musicPlayerState.playlist,
-      ...musicPlayerState.userAddedTracks
-    ];
-
-    if (musicPlayerState.userSettings.shuffle) {
-      musicPlayerState.effectivePlaylist = shuffleArray([...musicPlayerState.effectivePlaylist]);
-      musicPlayerState.isShuffled = true;
-    }
-
-    if (musicPlayerState.playlist.length > 0) {
-      musicPlayerState.isPlayerVisible = true;
-      musicPlayerState.modernPlayer.classList.add("visible");
-      updateModernTrackInfo(musicPlayerState.playlist[0]);
-      playTrack(0);
-      showNotification(
-        config.languageLabels.playlistRefreshed || "Oynatma listesi yenilendi",
-        2000
+    if (genres.length > 0) {
+      const perGenreLimit = Math.floor(config.muziklimit / genres.length) || 1;
+      const initialFetches = genres.map(genre =>
+        fetch(
+          `/Items?${baseQuery}&Limit=${perGenreLimit}&Genres=${encodeURIComponent(genre)}`,
+          { headers }
+        )
+        .then(r => {
+          if (!r.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+          return r.json();
+        })
+        .then(d => d.Items || [])
+        .catch(() => [])
       );
+
+      const initialResults = await Promise.all(initialFetches);
+      items = initialResults.flat();
+      const seenIds = new Set();
+      items = items.filter(it => {
+        if (seenIds.has(it.Id)) return false;
+        seenIds.add(it.Id);
+        return true;
+      });
+      let remainder = config.muziklimit - items.length;
+      while (remainder > 0) {
+        let added = false;
+        for (const genre of genres) {
+          if (remainder <= 0) break;
+          const excludeIds = Array.from(seenIds).join(',');
+          const url =
+            `/Items?${baseQuery}` +
+            `&Limit=1&Genres=${encodeURIComponent(genre)}` +
+            (excludeIds ? `&ExcludeItemIds=${encodeURIComponent(excludeIds)}` : '');
+          try {
+            const resp = await fetch(url, { headers });
+            if (!resp.ok) continue;
+            const { Items = [] } = await resp.json();
+            const [track] = Items;
+            if (track && !seenIds.has(track.Id)) {
+              items.push(track);
+              seenIds.add(track.Id);
+              remainder--;
+              added = true;
+            }
+          } catch (_) { /* atla */ }
+        }
+        if (!added) break;
+      }
+
+      items = items.slice(0, config.muziklimit);
+     showNotification(
+  `<i class="fas fa-masks-theater"></i> ${genres.length} ${config.languageLabels.genresApplied} ${items.length} ${config.languageLabels.tracks}`,
+  2000,
+  'tur'
+);
+
     } else {
-      musicPlayerState.modernTitleEl.textContent = config.languageLabels.noMusicFound;
-      musicPlayerState.modernArtistEl.textContent = config.languageLabels.tryRefreshing;
-      showNotification(
-        config.languageLabels.playlistEmpty || "Oynatma listesi boş",
-        2000,
-        'error'
+      const resp = await fetch(
+        `/Items?${baseQuery}&Limit=${config.muziklimit}`,
+        { headers }
       );
+      if (!resp.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+      const data = await resp.json();
+      items = data.Items || [];
     }
+
+    musicPlayerState.playlist = items;
+    musicPlayerState.originalPlaylist = [...items];
+    musicPlayerState.effectivePlaylist = [...items];
+
+    if (items.length > 0) {
+      playTrack(0);
+    } else {
+      showNotification(
+      `<i class="fas fa-info-circle"></i> ${
+        genres.length
+        ? config.languageLabels.noTracksForSelectedGenres
+          : config.languageLabels.noTracks
+      }`,
+      2000,
+      'info'
+    );
+    }
+
   } catch (err) {
-    console.error(config.languageLabels.refreshError, err);
+    console.error("Liste yenilenirken hata:", err);
     musicPlayerState.modernTitleEl.textContent = config.languageLabels.errorOccurred;
     musicPlayerState.modernArtistEl.textContent = err.message.includes("abort")
       ? config.languageLabels.requestTimeout
       : config.languageLabels.tryRefreshing;
-    musicPlayerState.isPlayerVisible = true;
-    musicPlayerState.modernPlayer.classList.add("visible");
-
     showNotification(
-      config.languageLabels.refreshError || "Liste yenilenirken hata oluştu",
-      2000,
+      `<i class="fas fa-exclamation-triangle"></i> ${
+      config.languageLabels.refreshError || "Liste yenilenirken hata oluştu"
+      }`,
+      3000,
       'error'
     );
   }
@@ -163,13 +214,17 @@ export async function saveCurrentPlaylistToJellyfin(
 ) {
   const token = getAuthToken();
   if (!token) {
-    showNotification(config.languageLabels.noApiToken, "error");
+    showNotification(
+      `<i class="fas fa-lock"></i> ${config.languageLabels.noApiToken}`,
+      3000,
+      'error'
+    );
     throw new Error("API anahtarı bulunamadı");
   }
 
   if (!Array.isArray(tracksToSave) || tracksToSave.length === 0) {
     showNotification(
-      `${config.languageLabels.noTracksToSave}`,
+      `<i class="fas fa-info-circle"></i> ${config.languageLabels.noTracksToSave}`,
       2000,
       'addlist'
     );
@@ -200,11 +255,13 @@ export async function saveCurrentPlaylistToJellyfin(
     }
 
   showNotification(
-    `${config.languageLabels.alreadyInPlaylist} (${alreadyInPlaylist.length}): ${displayNames}`,
-    4000,
-    'addlist'
-  );
-}
+      `<i class="fas fa-info-circle"></i> ${
+        config.languageLabels.alreadyInPlaylist
+      } (${alreadyInPlaylist.length}): ${displayNames}`,
+      4000,
+      'addlist'
+    );
+  }
 
       if (tracksToActuallyAdd.length > 0) {
   const idsToAdd = tracksToActuallyAdd.map(track => track.Id);
@@ -215,18 +272,17 @@ export async function saveCurrentPlaylistToJellyfin(
   }
 
         showNotification(
-          `${config.languageLabels.addingsuccessful}`,
-          2000,
-          'addlist'
-        );
+            `<i class="fas fa-check-circle"></i> ${config.languageLabels.addingsuccessful}`,
+              2000,
+              'addlist'
+            );
       } else {
         showNotification(
-          `${config.languageLabels.noTracksToSave}`,
+          `<i class="fas fa-info-circle"></i> ${config.languageLabels.noTracksToSave}`,
           2000,
           'addlist'
         );
       }
-
       return { success: true };
 
     } else {
@@ -248,23 +304,25 @@ export async function saveCurrentPlaylistToJellyfin(
         const error = await createResponse.json().catch(() => ({}));
         throw new Error(error.Message || config.languageLabels.playlistCreateFailed);
       }
-
       const result = await createResponse.json();
       showNotification(
-        `${config.languageLabels.playlistCreatedSuccessfully}`,
+        `<i class="fas fa-check-circle"></i> ${config.languageLabels.playlistCreatedSuccessfully}`,
         2000,
         'addlist'
       );
-
       return result;
     }
   } catch (err) {
     console.error("Çalma listesi işlemi başarısız:", err);
     showNotification(
-      `${err.message} ${config.languageLabels.playlistSaveError}`,
-      2000,
-      'addlist'
-    );
+        `<i class="fas fa-exclamation-triangle"></i> ${
+          err.message
+        } ${
+          config.languageLabels.playlistSaveError
+        }`,
+        3000,
+        'error'
+      );
     throw err;
   }
 }

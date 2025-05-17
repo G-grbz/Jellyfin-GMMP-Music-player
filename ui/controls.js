@@ -5,6 +5,7 @@ import { shuffleArray } from "../utils/domUtils.js";
 import { updatePlaylistModal } from "./playlistModal.js";
 import { playNext, playPrevious, togglePlayPause } from '../player/playback.js';
 import { updateNextTracks } from "./playerUI.js";
+import { togglePlayerVisibility } from "../utils/mainIndex.js";
 
 const config = getConfig();
 
@@ -25,13 +26,6 @@ export function enableKeyboardControls() {
   keyboardHandler = (e) => handleKeyPress(e);
   document.addEventListener('keydown', keyboardHandler);
   keyboardControlsActive = true;
-}
-
-export  function disableKeyboardControls() {
-  if (!keyboardControlsActive || !keyboardHandler) return;
-
-  document.removeEventListener('keydown', keyboardHandler);
-  keyboardControlsActive = false;
 }
 
 export function updateVolumeIcon(volume) {
@@ -57,11 +51,18 @@ function updateVolumeUI(volume, isMuted = false) {
   updateVolumeIcon(volume);
   musicPlayerState.volumeSlider.value = volume;
 
+  let icon = '<i class="fas fa-volume-up"></i>';
+  if (volume === 0 || musicPlayerState.audio.muted || isMuted) {
+    icon = '<i class="fas fa-volume-mute"></i>';
+  } else if (volume < 0.5) {
+    icon = '<i class="fas fa-volume-down"></i>';
+  }
+
   showNotification(
-  `${config.languageLabels.volume || 'Ses seviyesi'}: ${Math.round(volume * 100)}%`,
-  1500,
-  'volume'
-);
+    `${icon} ${config.languageLabels.volume || 'Ses seviyesi'}: ${Math.round(volume * 100)}%`,
+    2000,
+    'kontrol'
+  );
 }
 
 export function toggleMute() {
@@ -69,7 +70,7 @@ export function toggleMute() {
 
   if (!audio || !volumeBtn || !volumeSlider) {
     console.error('Ses kontrolleri başlatılamadı');
-    showNotification('Ses kontrolleri yüklenemedi');
+    showNotification('<i class="fas fa-volume-mute crossed-icon"></i> Ses kontrolleri yüklenemedi', 2000, 'error');
     return;
   }
 
@@ -78,16 +79,27 @@ export function toggleMute() {
   if (audio.muted) {
     volumeSlider.dataset.lastVolume = volumeSlider.value;
     volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
-    showNotification(config.languageLabels.volOff || 'Ses kapatıldı', 1500, 'volume');
+    showNotification(
+      `<i class="fas fa-volume-mute"></i> ${config.languageLabels.volOff || 'Ses kapatıldı'}`,
+      2000,
+      'kontrol'
+    );
   } else {
     const newVolume = parseFloat(volumeSlider.dataset.lastVolume) || 0.7;
     audio.volume = newVolume;
     volumeSlider.value = newVolume;
     updateVolumeUI(newVolume);
+
+    showNotification(
+      `<i class="fas fa-volume-up"></i> ${config.languageLabels.volOn || 'Ses açıldı'}`,
+      2000,
+      'kontrol'
+    );
   }
 
   saveUserSettings();
 }
+
 
 export function changeVolume(delta) {
   if (!areVolumeControlsReady()) {
@@ -139,35 +151,34 @@ export function toggleRepeatMode() {
     return;
   }
 
+  const mode = musicPlayerState.userSettings.repeatMode;
+
   const titles = {
     'none': config.languageLabels?.repeatModOff || 'Tekrar kapalı',
     'one': config.languageLabels?.repeatModOne || 'Tek şarkı tekrarı',
     'all': config.languageLabels?.repeatModAll || 'Tüm liste tekrarı'
   };
 
-  const notificationMessages = {
-    'none': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModOff || 'kapalı'}`,
-    'one': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModOne || 'tek şarkı'}`,
-    'all': `${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModAll || 'tüm liste'}`,
-  };
+  const iconClass = mode === 'one' ? 'fa-repeat-1' : 'fa-repeat';
+  const isActive = mode !== 'none';
 
-  let iconClass = 'fa-repeat';
-  if (musicPlayerState.userSettings.repeatMode === 'one') {
-    iconClass = 'fa-repeat-1';
-  }
-
-  const isActive = musicPlayerState.userSettings.repeatMode !== 'none';
-  repeatBtn.title = titles[musicPlayerState.userSettings.repeatMode];
+  repeatBtn.title = titles[mode];
   repeatBtn.innerHTML = `<i class="fas ${iconClass}" style="${isActive ? 'color:#e91e63' : ''}"></i>`;
 
+  const notificationMessages = {
+    'none': `<i class="fas fa-repeat crossed-icon"></i> ${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModOff || 'kapalı'}`,
+    'one': `<i class="fas fa-repeat-1"></i> ${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModOne || 'tek şarkı'}`,
+    'all': `<i class="fas fa-repeat"></i> ${config.languageLabels?.repeatMod || 'Tekrar modu'}: ${config.languageLabels?.repeatModAll || 'tüm liste'}`
+  };
+
   showNotification(
-    notificationMessages[musicPlayerState.userSettings.repeatMode],
-    1500,
-    'repeat'
+    notificationMessages[mode],
+    2000,
+    'kontrol'
   );
+
   saveUserSettings();
 }
-
 
 export function toggleShuffle() {
   if (!musicPlayerState || !musicPlayerState.userSettings) {
@@ -223,10 +234,13 @@ export function toggleShuffle() {
   }
 
   showNotification(
-  notificationMessages[newShuffleState],
-  1500,
-  'shuffle'
-);
+    newShuffleState
+      ? `<i class="fas fa-random"></i> ${notificationMessages.true}`
+      : `<i class="fas fa-random crossed-icon"></i> ${notificationMessages.false}`,
+    1500,
+    'kontrol'
+  );
+
   updatePlaylistModal();
   saveUserSettings();
   updateNextTracks();
@@ -242,6 +256,7 @@ function createKeyboardHelpModal() {
   modal.innerHTML = `
     <h3 style="margin-top:0;margin-bottom:10px;">🎹 Klavye Kısayolları</h3>
     <ul style="list-style:none;padding-left:0;">
+      <li><b>G</b>: Oynatıcıyı göster/gizle</li>
       <li><b>↑</b> veya <b>+</b>: Sesi artır</li>
       <li><b>↓</b> veya <b>-</b>: Sesi azalt</li>
       <li><b>M</b>: Sesi aç/kapat</li>
@@ -265,9 +280,16 @@ function toggleKeyboardHelpModal() {
 }
 
 export function handleKeyPress(e) {
+  if (!musicPlayerState.isPlayerVisible && e.key.toLowerCase() !== 'g') return;
+
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
   switch (e.key.toLowerCase()) {
+    case 'g':
+      e.preventDefault();
+      togglePlayerVisibility();
+      break;
+
     case 'arrowup':
     case '+':
       e.preventDefault();
@@ -344,11 +366,9 @@ export function toggleRemoveOnPlayMode() {
     ? '<i class="fas fa-trash-list" style="color:#e91e63"></i>'
     : '<i class="fas fa-trash-list"></i>';
 
-  showNotification(
-    setting
-      ? config.languageLabels.removeOnPlayOn  || "Çaldıktan sonra sil modu açık"
-      : config.languageLabels.removeOnPlayOff || "Çaldıktan sonra sil modu kapalı",
-    1500,
-    'info'
-  );
+  const message = setting
+    ? `<i class="fas fa-trash-list"></i> ${config.languageLabels.removeOnPlayOn || "Çaldıktan sonra sil modu açık"}`
+    : `<i class="fas fa-trash-list crossed-icon"></i> ${config.languageLabels.removeOnPlayOff || "Çaldıktan sonra sil modu kapalı"}`;
+
+  showNotification(message, 2000, 'kontrol');
 }

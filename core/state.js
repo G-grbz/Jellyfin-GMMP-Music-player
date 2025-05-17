@@ -45,6 +45,8 @@ export const musicPlayerState = {
   onTrackChanged: [],
   removeOnPlay: false,
   isShuffled: false,
+  genreFilter: null,
+  selectedGenres: [],
   audio: (() => {
   const audio = new Audio();
   audio.preload = 'metadata';
