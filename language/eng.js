@@ -240,6 +240,7 @@ export const languageLabels = {
   track: "Song",
   placeholder: "Search in listed songs...",
   sirada: "Next ones",
+  rastgele: "Random",
   unauthorizedAccess: "Unauthorized access - Please check your authentication",
   accessForbidden: "Access forbidden - You may not have the required permissions",
   playlistNotFoun: "Playlist not found",

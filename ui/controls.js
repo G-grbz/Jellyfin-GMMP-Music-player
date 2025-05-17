@@ -210,29 +210,6 @@ export function toggleShuffle() {
     ? '<i class="fas fa-random" style="color:#e91e63"></i>'
     : '<i class="fas fa-random"></i>';
 
-  const currentTrackId = musicPlayerState.currentIndex !== -1
-    ? musicPlayerState.playlist[musicPlayerState.currentIndex]?.Id
-    : null;
-
-  if (newShuffleState) {
-    musicPlayerState.playlist = shuffleArray([...musicPlayerState.originalPlaylist]);
-  } else {
-    musicPlayerState.playlist = [...musicPlayerState.originalPlaylist];
-    if (currentTrackId) {
-      const originalIndex = musicPlayerState.originalPlaylist.findIndex(track => track.Id === currentTrackId);
-      if (originalIndex !== -1) {
-        musicPlayerState.currentIndex = originalIndex;
-      }
-    }
-  }
-
-  if (newShuffleState && currentTrackId) {
-    const newIndex = musicPlayerState.playlist.findIndex(track => track.Id === currentTrackId);
-    if (newIndex !== -1) {
-      musicPlayerState.currentIndex = newIndex;
-    }
-  }
-
   showNotification(
     newShuffleState
       ? `<i class="fas fa-random"></i> ${notificationMessages.true}`

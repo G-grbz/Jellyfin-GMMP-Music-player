@@ -242,6 +242,7 @@ export const languageLabels = {
   track: "Song",
   placeholder: "In gelisteten Songs suchen...",
   sirada: "Die Nächsten",
+  rastgele: "Zufällig",
   unauthorizedAccess: "Unbefugter Zugriff - Bitte überprüfen Sie Ihre Authentifizierung",
   accessForbidden: "Zugriff verboten - Sie haben möglicherweise nicht die erforderlichen Berechtigungen",
   playlistNotFound: "Playlist nicht gefunden",

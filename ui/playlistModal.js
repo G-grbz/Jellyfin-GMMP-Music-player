@@ -7,6 +7,7 @@ import { fetchJellyfinPlaylists } from "../core/jellyfinPlaylists.js";
 import { updateNextTracks } from "./playerUI.js";
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
 
+
 const config = getConfig();
 
 export function createPlaylistModal() {

@@ -76,19 +76,21 @@ export function createModernPlayerUI() {
   });
 
   const albumArt = document.createElement("div");
-  albumArt.id = "player-album-art";
-  albumArt.addEventListener("click", () => {
+albumArt.id = "player-album-art";
+albumArt.addEventListener("click", () => {
     const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
     if (!currentTrack) return;
 
-    const artistId = currentTrack.AlbumArtistId ||
-                   currentTrack.ArtistItems?.[0]?.Id ||
-                   currentTrack.ArtistId;
+    const artistName = currentTrack.Artists?.join(", ") ||
+                     currentTrack.AlbumArtist ||
+                     config.languageLabels.unknownArtist;
 
-    if (artistId) {
-    const jellyfinServer = window.location.origin;
-    window.location.href = `${jellyfinServer}/web/#/details?id=${artistId}`;
-  }
+    const artistId = currentTrack.ArtistItems?.[0]?.Id ||
+                   currentTrack.AlbumArtistId ||
+                   currentTrack.ArtistId ||
+                   null;
+
+    toggleArtistModal(true, artistName, artistId);
 });
 
   const trackInfo = document.createElement("div");
@@ -259,40 +261,63 @@ export function createModernPlayerUI() {
 }
 
 export async function updateNextTracks() {
-  const { nextTracksList, playlist, currentIndex, nextTracksContainer, id3ImageCache = {} } = musicPlayerState;
+  const {
+    nextTracksList,
+    playlist,
+    currentIndex,
+    userSettings,
+    nextTracksContainer,
+    id3ImageCache = {},
+    effectivePlaylist
+  } = musicPlayerState;
+
   if (!nextTracksList || !playlist) return;
 
-  const existingItems = Array.from(nextTracksList.querySelectorAll('.next-track-item'));
-  const existingTrackIds = existingItems.map(item => item.dataset.trackId);
-
-  existingItems.forEach(item => {
-    const trackId = item.dataset.trackId;
-    const isStillNeeded = playlist.some((track, index) => {
-      const relativeIndex = (index - currentIndex + playlist.length) % playlist.length;
-      return track.Id === trackId && relativeIndex > 0 && relativeIndex <= 3;
-    });
-
-    if (!isStillNeeded) {
-      item.classList.remove('visible');
-      setTimeout(() => item.remove(), 300);
-    }
-  });
-
+  nextTracksList.innerHTML = '';
   const nextTracksName = nextTracksContainer.querySelector('.next-tracks-name');
+
+  if (userSettings.shuffle) {
+    nextTracksName.textContent = config.languageLabels.rastgele || "Rastgele";
+  } else {
+    nextTracksName.textContent = config.languageLabels.sirada || "Sıradakiler";
+  }
+
   nextTracksName?.classList.add('hidden');
 
   const maxNextTracks = 3;
-  let addedCount = 0;
+  const nextIndices = [];
 
-  for (let offset = 1; offset <= maxNextTracks; offset++) {
-    const nextIndex = (currentIndex + offset) % playlist.length;
+  if (userSettings.shuffle) {
+    const availableIndices = [...Array(playlist.length).keys()]
+      .filter(i => i !== currentIndex);
+
+    while (nextIndices.length < Math.min(maxNextTracks, availableIndices.length)) {
+      const randomIndex = Math.floor(Math.random() * availableIndices.length);
+      const candidate = availableIndices[randomIndex];
+
+      if (!nextIndices.includes(candidate)) {
+        nextIndices.push(candidate);
+      }
+    }
+  }
+  else {
+    for (let offset = 1; offset <= maxNextTracks; offset++) {
+      if (playlist.length === 0) break;
+      const idx = (currentIndex + offset) % playlist.length;
+      nextIndices.push(idx);
+    }
+  }
+
+  let addedCount = 0;
+  for (const nextIndex of nextIndices) {
     const track = playlist[nextIndex];
-    if (!track || existingTrackIds.includes(track.Id)) continue;
+    if (!track) continue;
 
     try {
       const trackElement = document.createElement('div');
       trackElement.className = 'next-track-item hidden';
       trackElement.dataset.trackId = track.Id;
+      trackElement.dataset.trackIndex = nextIndex;
       trackElement.title = track.Name || config.languageLabels.unknownTrack;
 
       const coverElement = document.createElement('div');
@@ -303,19 +328,12 @@ export async function updateNextTracks() {
       if (imageUri) {
         coverElement.style.backgroundImage = `url('${imageUri}')`;
       }
-
-      coverElement.onclick = e => {
-        e.stopPropagation();
-        playTrack(nextIndex);
-      };
+      coverElement.onclick = () => playTrack(nextIndex);
 
       const titleElement = document.createElement('div');
       titleElement.className = 'next-track-title';
       titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
-      titleElement.onclick = e => {
-        e.stopPropagation();
-        playTrack(nextIndex);
-      };
+      titleElement.onclick = () => playTrack(nextIndex);
 
       trackElement.append(coverElement, titleElement);
       nextTracksList.appendChild(trackElement);
@@ -323,11 +341,11 @@ export async function updateNextTracks() {
       setTimeout(() => {
         trackElement.classList.remove('hidden');
         trackElement.classList.add('visible');
-      }, offset * 200);
+      }, (addedCount + 1) * 200);
 
       addedCount++;
     } catch (error) {
-      console.error(`Track #${offset} yüklenirken hata:`, error);
+      console.error(`Track #${nextIndex} yüklenirken hata:`, error);
     }
   }
 

@@ -86,6 +86,15 @@ function handleSongEnd() {
         .catch(err => handlePlaybackError(err, 'repeat'));
       break;
 
+    case 'all':
+      if (userSettings.removeOnPlay) {
+        playNext();
+      } else {
+        const nextIndex = (musicPlayerState.currentIndex + 1) % playlist.length;
+        playTrack(nextIndex);
+      }
+      break;
+
     default:
       playNext();
   }
@@ -187,17 +196,33 @@ export function playNext() {
       );
       return refreshPlaylist();
     }
+
+    if (userSettings.shuffle) {
+      const nextIndex = Math.floor(Math.random() * playlist.length);
+      return playTrack(nextIndex);
+    } else {
+      const newIndex = currentIndex >= playlist.length ? 0 : currentIndex;
+      return playTrack(newIndex);
+    }
   }
 
   let nextIndex;
-  if (userSettings.shuffleMode) {
+  if (userSettings.shuffle) {
     let rnd;
     do {
       rnd = Math.floor(Math.random() * effectivePlaylist.length);
     } while (rnd === currentIndex && effectivePlaylist.length > 1);
     nextIndex = rnd;
   } else {
-    nextIndex = (currentIndex + (userSettings.removeOnPlay ? 0 : 1)) % effectivePlaylist.length;
+    if (userSettings.repeatMode === 'all') {
+      nextIndex = (currentIndex + 1) % effectivePlaylist.length;
+    } else {
+      nextIndex = currentIndex + 1;
+      if (nextIndex >= effectivePlaylist.length) {
+        updatePlaybackUI(false);
+        return;
+      }
+    }
   }
 
   playTrack(nextIndex);

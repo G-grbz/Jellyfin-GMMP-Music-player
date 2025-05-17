@@ -238,6 +238,7 @@ export const languageLabels = {
   track: "Şarkı",
   placeholder: "Listelenen şarkılarda ara...",
   sirada: "Sıradakiler",
+  rastgele: "Rastgele",
   unauthorizedAccess: "Yetkisiz erişim - Lütfen kimlik doğrulamanızı kontrol edin",
   accessForbidden: "Erişim engellendi - Gerekli izinlere sahip olmayabilirsiniz",
   playlistNotFound: "Oynatma listesi bulunamadı",

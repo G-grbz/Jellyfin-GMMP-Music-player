@@ -1638,26 +1638,25 @@ function handleTrackClick(track) {
     if (existingIndex === -1) {
         newPlaylist.splice(currentIndex + 1, 0, track);
         musicPlayerState.playlist = newPlaylist;
-        const newOriginal = [...musicPlayerState.originalPlaylist];
-        newOriginal.splice(currentIndex + 1, 0, track);
-        musicPlayerState.originalPlaylist = newOriginal;
+        musicPlayerState.originalPlaylist = [...newPlaylist];
 
         showNotification(
-                `<i class="fas fa-plus-circle"></i> ${config.languageLabels.addingsuccessful}`,
-                2000,
-                'addlist'
-            );
-        playTrack(currentIndex + 1);
+            `<i class="fas fa-plus-circle"></i> ${config.languageLabels.addingsuccessful}`,
+            2000,
+            'addlist'
+        );
+        updateNextTracks().then(() => {
+            playTrack(currentIndex + 1);
+        });
     } else {
         showNotification(
-                `<i class="fas fa-info-circle"></i> ${config.languageLabels.alreadyInTrack}`,
-                2000,
-                'addlist'
-                );
+            `<i class="fas fa-info-circle"></i> ${config.languageLabels.alreadyInTrack}`,
+            2000,
+            'addlist'
+        );
         playTrack(existingIndex);
     }
 }
-
 
 function handlePlaySelected() {
     if (selectedTrackIds.size === 0) return;
@@ -1716,6 +1715,7 @@ if (duplicateCount > 0) {
     );
     toggleArtistModal(false);
     updateNextTracks();
+    updatePlaylistModal();
 }
 
 
@@ -1756,6 +1756,7 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
         if (!artistModal.classList.contains("hidden")) {
             artistName = currentModalArtist.name;
             artistId = currentModalArtist.id;
+            setupArtistImageClickHandler();
         } else {
             selectedTrackIds = new Set();
             currentModalArtist = { name: artistName, id: artistId };
@@ -1923,4 +1924,25 @@ function createSortHeader(className, text, sortOption) {
     });
 
     return header;
+}
+
+function setupArtistImageClickHandler() {
+    const artistImage = document.querySelector("#artist-modal .modal-artist-image");
+    if (artistImage) {
+        artistImage.style.cursor = "pointer";
+        artistImage.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
+            if (!currentTrack) return;
+
+            const artistId = currentTrack.AlbumArtistId ||
+                           currentTrack.ArtistItems?.[0]?.Id ||
+                           currentTrack.ArtistId;
+
+            if (artistId) {
+                const jellyfinServer = window.location.origin;
+                window.open(`${jellyfinServer}/web/#/details?id=${artistId}`, '_blank');
+            }
+        });
+    }
 }
