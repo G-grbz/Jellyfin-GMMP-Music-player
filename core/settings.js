@@ -169,7 +169,11 @@ export function createSettingsModal() {
 
     applyBtn.onclick = () => {
         applySettings(false);
-        showNotification(config.languageLabels.settingsSavedModal || "Ayarlar kaydedildi. Değişikliklerin aktif olması için slider sayfasını yenileyin.", 3000, 'save');
+        showNotification(
+            `<i class="fas fa-floppy-disk" style="margin-right: 8px;"></i> ${config.languageLabels.settingsSavedModal || "Ayarlar kaydedildi. Değişikliklerin aktif olması için slider sayfasını yenileyin."}`,
+            3000,
+            'info'
+        );
     };
 
     btnDiv.append(saveBtn, applyBtn, resetBtn);
