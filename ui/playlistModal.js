@@ -576,7 +576,7 @@ async function loadImageForItem(item, index) {
   const id = track.Id;
   const img = item.querySelector(".playlist-item-img");
 
-  const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
+  const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
   img.style.backgroundImage = DEFAULT_ARTWORK;
 
   try {
