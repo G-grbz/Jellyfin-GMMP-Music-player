@@ -66,12 +66,7 @@ function cleanupAudioListeners() {
 }
 
 function handleSongEnd() {
-  const { userSettings, currentIndex, playlist } = musicPlayerState;
-
-  if (userSettings.removeOnPlay) {
-    playlist.splice(currentIndex, 1);
-    updatePlaylistModal();
-  }
+  const { userSettings, playlist } = musicPlayerState;
 
   if (playlist.length === 0) {
     updatePlaybackUI(false);
@@ -91,15 +86,10 @@ function handleSongEnd() {
         .catch(err => handlePlaybackError(err, 'repeat'));
       break;
 
-    case 'all':
-      playNext();
-      break;
-
     default:
       playNext();
   }
 }
-
 
 export function togglePlayPause() {
   const { audio } = musicPlayerState;
@@ -168,8 +158,6 @@ export function playPrevious() {
   playTrack(prevIndex);
 }
 
-
-
 export function playNext() {
   const { playlist, effectivePlaylist, userSettings, currentIndex } = musicPlayerState;
 
@@ -182,9 +170,11 @@ export function playNext() {
     );
     return refreshPlaylist();
   }
-  if (userSettings.removeOnPlay) {
+
+  if (userSettings.removeOnPlay && currentIndex >= 0 && currentIndex < playlist.length) {
+    const currentTrackId = musicPlayerState.currentTrackId;
     playlist.splice(currentIndex, 1);
-    const effIdx = effectivePlaylist.findIndex(t => t.Id === musicPlayerState.currentTrackId);
+    const effIdx = effectivePlaylist.findIndex(t => t.Id === currentTrackId);
     if (effIdx > -1) effectivePlaylist.splice(effIdx, 1);
     updatePlaylistModal();
 
@@ -197,30 +187,18 @@ export function playNext() {
       );
       return refreshPlaylist();
     }
-
-    const newIndex = Math.min(currentIndex, playlist.length - 1);
-    const nextIndex = userSettings.shuffleMode
-      ? (() => {
-          let rnd;
-          do {
-            rnd = Math.floor(Math.random() * effectivePlaylist.length);
-          } while (rnd === newIndex && effectivePlaylist.length > 1);
-          return rnd;
-        })()
-      : newIndex;
-
-    return playTrack(nextIndex);
   }
 
-  const nextIndex = userSettings.shuffleMode
-    ? (() => {
-        let rnd;
-        do {
-          rnd = Math.floor(Math.random() * effectivePlaylist.length);
-        } while (rnd === currentIndex && effectivePlaylist.length > 1);
-        return rnd;
-      })()
-    : (currentIndex + 1) % effectivePlaylist.length;
+  let nextIndex;
+  if (userSettings.shuffleMode) {
+    let rnd;
+    do {
+      rnd = Math.floor(Math.random() * effectivePlaylist.length);
+    } while (rnd === currentIndex && effectivePlaylist.length > 1);
+    nextIndex = rnd;
+  } else {
+    nextIndex = (currentIndex + (userSettings.removeOnPlay ? 0 : 1)) % effectivePlaylist.length;
+  }
 
   playTrack(nextIndex);
 }
