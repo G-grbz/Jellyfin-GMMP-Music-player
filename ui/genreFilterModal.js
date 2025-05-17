@@ -9,7 +9,7 @@ const config = getConfig();
 export async function showGenreFilterModal() {
   try {
     const token = getAuthToken();
-    const response = await fetch(`/Genres?IncludeItemTypes=Audio`, {
+    const response = await fetch(`/MusicGenres?Recursive=true&IncludeItemTypes=MusicAlbum,Audio&Fields=PrimaryImageAspectRatio&EnableTotalRecordCount=false`, {
       headers: { 'X-Emby-Token': token }
     });
 
@@ -26,6 +26,8 @@ export async function showGenreFilterModal() {
       );
       return;
     }
+
+    console.log('Alınan türler:', genres);
 
     const modal = document.createElement('div');
     modal.className = 'genre-filter-modal';
