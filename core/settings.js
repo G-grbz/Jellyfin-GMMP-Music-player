@@ -232,6 +232,7 @@ export function createSettingsModal() {
             id3limit: parseInt(formData.get('id3limit'), 10),
             albumlimit: parseInt(formData.get('albumlimit'), 10),
             gruplimit: parseInt(formData.get('gruplimit'), 10),
+            historylimit: parseInt(formData.get('historylimit'), 10),
 
             useListFile: formData.get('useListFile') === 'on',
             useManualList: formData.get('useManualList') === 'on',
@@ -340,6 +341,7 @@ function createSliderPanel(config, labels) {
     const variants = [
         { value: 'kompak', label: labels.kompaktslider || 'Kompakt' },
         { value: 'fullslider', label: labels.tamslider || 'Tam Ekran' },
+        { value: 'normalslider', label: labels.normalslider || 'Normal' },
     ];
 
     variants.forEach(variant => {
@@ -630,6 +632,7 @@ function createMusicPanel(config, labels) {
 
     const languageDiv = document.createElement('div');
     languageDiv.className = 'setting-item';
+
     const languageLabel = document.createElement('label');
     languageLabel.textContent = labels.defaultLanguage || 'Dil:';
     const languageSelect = document.createElement('select');
@@ -654,7 +657,6 @@ function createMusicPanel(config, labels) {
     });
 
     languageDiv.append(languageLabel, languageSelect);
-    section.appendChild(languageDiv);
 
     const musicLimitDiv = document.createElement('div');
     musicLimitDiv.className = 'setting-item';
@@ -667,7 +669,7 @@ function createMusicPanel(config, labels) {
     musicLimitInput.min = 1;
     musicLimitInput.max = 9999;
     musicLimitDiv.append(musicLimitLabel, musicLimitInput);
-    section.appendChild(musicLimitDiv);
+    section.appendChild(languageDiv, musicLimitDiv);
 
     const songLimitDiv = document.createElement('div');
     songLimitDiv.className = 'setting-item';
@@ -709,6 +711,21 @@ function createMusicPanel(config, labels) {
     albumLimitInput.max = 9999;
     albumLimitDiv.append(albumLimitLabel, albumLimitInput);
     section.appendChild(albumLimitDiv);
+
+    const historyLimitDiv = document.createElement('div');
+    historyLimitDiv.className = 'setting-item';
+    const historyLimitLabel = document.createElement('label');
+    historyLimitLabel.textContent = labels.historylimit || 'Hariç Tutulacak Geçmiş Liste Sayısı';
+    historyLimitLabel.title = labels.historylimitTitle || 'Yeni listelere, geçmiş listeler içerisindeki şarkıları dahil etmemek için limit belirleyin';
+    const historyLimitInput = document.createElement('input');
+    historyLimitInput.type = 'number';
+    historyLimitInput.value = config.historylimit || 10;
+    historyLimitInput.name = 'historylimit';
+    historyLimitInput.title = labels.historylimitTitle || 'Yeni listelere, geçmiş listeler içerisindeki şarkıları dahil etmemek için limit belirleyin';
+    historyLimitInput.min = 1;
+    historyLimitInput.max = 9999;
+    historyLimitDiv.append(historyLimitLabel, historyLimitInput);
+    section.appendChild(historyLimitDiv);
 
     const groupLimitDiv = document.createElement('div');
     groupLimitDiv.className = 'setting-item';

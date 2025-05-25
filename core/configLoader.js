@@ -7,6 +7,7 @@ const defaultConfig = {
   sarkilimit: 200,
   gruplimit: 200,
   id3limit: 10,
+  historylimit: 10,
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -23,6 +24,7 @@ export function getConfig() {
     sarkilimit: parseInt(localStorage.getItem('sarkilimit'), 10) || defaultConfig.sarkilimit,
     gruplimit: parseInt(localStorage.getItem('gruplimit'), 10) || defaultConfig.gruplimit,
     id3limit: parseInt(localStorage.getItem('id3limit'), 10) || defaultConfig.id3limit,
+    historylimit: parseInt(localStorage.getItem('historylimit'), 10) || defaultConfig.historylimit,
   };
 }
 
@@ -49,6 +51,10 @@ export function updateConfig(newConfig) {
 
   if (newConfig.id3limit !== undefined) {
     localStorage.setItem('id3limit', newConfig.id3limit);
+  }
+
+  if (newConfig.historylimit !== undefined) {
+    localStorage.setItem('historylimit', newConfig.historylimit);
   }
 
   if (newConfig.defaultLanguage !== undefined) {

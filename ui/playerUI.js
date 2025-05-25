@@ -12,6 +12,8 @@ import { togglePlayerVisibility } from '../utils/mainIndex.js';
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
 import { toggleArtistModal, setupArtistClickHandler, checkForNewMusic } from "./artistModal.js";
 import { showGenreFilterModal } from "./genreFilterModal.js";
+import { showTopTracksModal } from "./topModal.js";
+
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
@@ -110,6 +112,15 @@ albumArt.addEventListener("click", () => {
   artist.textContent = config.languageLabels.artistUnknown;
   artist.onclick = () => toggleArtistModal(true, config.languageLabels.artistUnknown, null);
 
+  const topTracksBtn = createButton({
+  className: "top-tracks-btn",
+  iconClass: "fas fa-chart-line",
+  title: config.languageLabels.myMusic || "En Çok Dinlenenler",
+  onClick: () => {
+  showTopTracksModal();
+},
+});
+
   trackInfo.append(titleContainer, artist);
 
   const isMobile = window.matchMedia("(max-width: 768px)").matches;
@@ -170,10 +181,11 @@ albumArt.addEventListener("click", () => {
     volumeBtn.innerHTML = `<i class="${icon}"></i>`;
   }
 
+
   const controls = document.createElement("div");
   controls.className = "player-controls";
 
-  const controlElements = [repeatBtn, shuffleBtn, removeOnPlayBtn, refreshBtn, genreFilterBtn, prevBtn, playPauseBtn, nextBtn, lyricsBtn, volumeBtn];
+  const controlElements = [prevBtn, playPauseBtn, nextBtn, repeatBtn, shuffleBtn, removeOnPlayBtn, refreshBtn, genreFilterBtn, lyricsBtn, topTracksBtn, volumeBtn];
 
   if (isMobile) {
     const scrollableControls = document.createElement("div");
@@ -376,7 +388,7 @@ async function getTrackImage(track, cache) {
   const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
   const imageId = track.AlbumId || trackId;
   if (imageTag) {
-    return `${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
+    return `/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
   }
 
   return null;

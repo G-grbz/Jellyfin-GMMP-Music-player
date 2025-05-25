@@ -66,7 +66,14 @@ function cleanupAudioListeners() {
 }
 
 function handleSongEnd() {
-  const { userSettings, playlist } = musicPlayerState;
+  const { userSettings, playlist, audio } = musicPlayerState;
+  const currentTrack = playlist[musicPlayerState.currentIndex];
+  if (currentTrack) {
+    reportPlaybackStopped(
+      currentTrack,
+      convertSecondsToTicks(audio.currentTime)
+    );
+  }
 
   if (playlist.length === 0) {
     updatePlaybackUI(false);
@@ -110,11 +117,24 @@ export function togglePlayPause() {
 
   if (audio.paused) {
     audio.play()
-      .then(() => updatePlaybackUI(true))
+      .then(() => {
+        updatePlaybackUI(true);
+        const currentTrack = musicPlayerState.playlist[musicPlayerState.currentIndex];
+        if (currentTrack) {
+          reportPlaybackStart(currentTrack);
+        }
+      })
       .catch(error => handlePlaybackError(error));
   } else {
     audio.pause();
     updatePlaybackUI(false);
+    const currentTrack = musicPlayerState.playlist[musicPlayerState.currentIndex];
+    if (currentTrack) {
+      reportPlaybackStopped(
+        currentTrack,
+        convertSecondsToTicks(audio.currentTime)
+      );
+    }
   }
 }
 
@@ -364,7 +384,7 @@ async function getArtworkFromSources(track) {
     if (imageTag) {
       const imageId = track.AlbumId || track.Id;
       const serverUrl = window.ApiClient?.serverAddress() || window.location.origin;
-      const url = `${serverUrl}/Items/${imageId}/Images/Primary?fillHeight=300&fillWidth=300&quality=90&tag=${imageTag}`;
+      const url = `/Items/${imageId}/Images/Primary?fillHeight=300&fillWidth=300&quality=90&tag=${imageTag}`;
       const valid = await checkImageExists(url);
       return valid ? url : DEFAULT_ARTWORK;
     }
@@ -392,6 +412,13 @@ async function getEmbeddedImage(trackId) {
 
 export function playTrack(index) {
   cleanupAudioListeners();
+  const currentTrack = musicPlayerState.playlist[musicPlayerState.currentIndex];
+  if (currentTrack) {
+    reportPlaybackStopped(
+      currentTrack,
+      convertSecondsToTicks(musicPlayerState.audio.currentTime)
+    );
+  }
 
   if (index < 0 || index >= musicPlayerState.playlist.length) return;
 
@@ -408,14 +435,15 @@ export function playTrack(index) {
   musicPlayerState.currentAlbumName = track.Album || config.languageLabels.unknownAlbum;
 
   showNotification(
-  `<i class="fas fa-music" style="margin-right: 8px;"></i>${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
-  2000,
-  'kontrol'
-);
+    `<i class="fas fa-music" style="margin-right: 8px;"></i>${config.languageLabels.simdioynat}: ${musicPlayerState.currentTrackName}`,
+    2000,
+    'kontrol'
+  );
 
   updateModernTrackInfo(track);
   updatePlaylistModal();
   startLyricsSync();
+  reportPlaybackStart(track);
 
   const audio = musicPlayerState.audio;
   audio.onended = handleSongEnd;
@@ -424,7 +452,7 @@ export function playTrack(index) {
   audio.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
   setupAudioListeners();
 
-  const audioUrl = `${window.location.origin}/Audio/${track.Id}/stream.mp3?Static=true`;
+  const audioUrl = `/Audio/${track.Id}/stream.mp3?Static=true`;
   audio.src = audioUrl;
   audio.load();
 
@@ -453,11 +481,11 @@ function getAudioUrl(track) {
       return null;
     }
 
-    return `${window.ApiClient.serverAddress()}/Audio/${encodeURIComponent(trackId)}/stream.mp3?Static=true&api_key=${authToken}`;
+    return `/Audio/${encodeURIComponent(trackId)}/stream.mp3?Static=true&api_key=${authToken}`;
   }
 
   return track.filePath || track.mediaSource ||
-        (track.Id && `${window.location.origin}/Audio/${track.Id}/stream.mp3`);
+        (track.Id && `/Audio/${track.Id}/stream.mp3`);
 }
 
 function getEffectiveDuration() {
@@ -480,4 +508,67 @@ function handleLoadedMetadata() {
       updateProgress();
     }, 1000);
   }
+}
+
+async function reportPlaybackStart(track) {
+  if (!track?.Id) return;
+
+  try {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+
+    const response = await fetch(`/Sessions/Playing`, {
+      method: "POST",
+      headers: {
+        "Authorization": `MediaBrowser Token="${authToken}"`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        ItemId: track.Id,
+        PlayMethod: "DirectStream",
+        CanSeek: true,
+        IsPaused: false,
+        IsMuted: false,
+        PositionTicks: 0
+      })
+    });
+
+    if (!response.ok) {
+      console.error("Oynatma başlatma raporu gönderilemedi:", response.status);
+    }
+  } catch (error) {
+    console.error("Oynatma raporlama hatası:", error);
+  }
+}
+
+async function reportPlaybackStopped(track, positionTicks) {
+  if (!track?.Id) return;
+
+  try {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+
+    const response = await fetch(`/Sessions/Playing/Stopped`, {
+      method: "POST",
+      headers: {
+        "Authorization": `MediaBrowser Token="${authToken}"`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        ItemId: track.Id,
+        PlayMethod: "DirectStream",
+        PositionTicks: positionTicks || 0
+      })
+    });
+
+    if (!response.ok) {
+      console.error("Oynatma durdurma raporu gönderilemedi:", response.status);
+    }
+  } catch (error) {
+    console.error("Oynatma durdurma raporlama hatası:", error);
+  }
+}
+
+function convertSecondsToTicks(seconds) {
+  return seconds ? Math.floor(seconds * 10000000) : 0;
 }

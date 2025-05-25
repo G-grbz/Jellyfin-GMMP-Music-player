@@ -6,7 +6,7 @@ import { saveCurrentPlaylistToJellyfin, removeItemsFromPlaylist } from "../core/
 import { fetchJellyfinPlaylists } from "../core/jellyfinPlaylists.js";
 import { updateNextTracks } from "./playerUI.js";
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
-
+import { showGenreFilterModal } from "./genreFilterModal.js";
 
 const config = getConfig();
 
@@ -576,7 +576,7 @@ async function loadImageForItem(item, index) {
   const id = track.Id;
   const img = item.querySelector(".playlist-item-img");
 
-  const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+  const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
   img.style.backgroundImage = DEFAULT_ARTWORK;
 
   try {

@@ -1042,11 +1042,12 @@ async function showSaveToPlaylistModal() {
                 isNew,
                 playlistId
             );
-            showNotification(
-                `<i class="fas fa-check-circle"></i> ${tracksToSave.length} ${config.languageLabels.track} ${isNew ? config.languageLabels.playlistCreatedSuccessfully :            config.languageLabels.addingsuccessful}`,
-                3000,
-                'addlist'
-            );
+
+            const message = isNew
+                ? `<i class="fas fa-check-circle"></i> ${config.languageLabels.playlistCreatedSuccessfully} (${tracksToSave.length} ${config.languageLabels.track})`
+                : `<i class="fas fa-check-circle"></i> ${tracksToSave.length} ${config.languageLabels.track} ${config.languageLabels.addingsuccessful}`;
+
+            showNotification(message, 3000, 'addlist');
             closeModal();
         } catch (err) {
             console.error(err);
@@ -1557,6 +1558,15 @@ function createTrackElement(track, index, showPosition = true) {
     const trackElement = document.createElement("div");
     trackElement.className = "modal-artist-track-item";
 
+    const trackNumberContainer = document.createElement("div");
+    trackNumberContainer.className = "modal-track-number-container";
+
+    const trackNumber = document.createElement("span");
+    trackNumber.className = "modal-track-number";
+    trackNumber.textContent = (index + 1).toString().padStart(2, '0');
+
+    trackNumberContainer.appendChild(trackNumber);
+
     const trackCheckbox = document.createElement("input");
     trackCheckbox.type = "checkbox";
     trackCheckbox.className = "modal-track-checkbox";
@@ -1572,12 +1582,8 @@ function createTrackElement(track, index, showPosition = true) {
         updatePaginationControls();
     });
 
-    if (showPosition) {
-        const trackPosition = document.createElement("div");
-        trackPosition.className = "modal-track-position";
-        trackPosition.textContent = (index + 1).toString().padStart(2, '0');
-        trackElement.appendChild(trackPosition);
-    }
+    trackNumberContainer.appendChild(trackCheckbox);
+    trackElement.appendChild(trackNumberContainer);
 
     const trackInfo = document.createElement("div");
     trackInfo.className = "modal-track-info";
@@ -1620,7 +1626,7 @@ function createTrackElement(track, index, showPosition = true) {
     trackDuration.className = "modal-track-duration";
     trackDuration.textContent = formatDuration(track);
 
-    trackElement.append(trackCheckbox, trackInfo, trackDuration);
+    trackElement.append(trackInfo, trackDuration);
 
     trackElement.addEventListener("click", (e) => {
         if (e.target.tagName === 'INPUT') return;

@@ -9,7 +9,7 @@ const config = getConfig();
 export async function showGenreFilterModal() {
   try {
     const token = getAuthToken();
-    const response = await fetch(`/MusicGenres?Recursive=true&IncludeItemTypes=MusicAlbum,Audio&Fields=PrimaryImageAspectRatio&EnableTotalRecordCount=false`, {
+    const response = await fetch(`/MusicGenres?Recursive=true&IncludeItemTypes=MusicAlbum,Audio&Fields=PrimaryImageAspectRatio,ImageTags&EnableTotalRecordCount=false`, {
       headers: { 'X-Emby-Token': token }
     });
 
@@ -26,8 +26,6 @@ export async function showGenreFilterModal() {
       );
       return;
     }
-
-    console.log('Alınan türler:', genres);
 
     const modal = document.createElement('div');
     modal.className = 'genre-filter-modal';
@@ -100,34 +98,59 @@ export async function showGenreFilterModal() {
     let currentLetter = '';
 
     sortedGenres.forEach(genre => {
-      const firstLetter = genre.Name.charAt(0).toUpperCase();
+  const firstLetter = genre.Name.charAt(0).toUpperCase();
 
-      if (firstLetter !== currentLetter) {
-        currentLetter = firstLetter;
-        const letterHeader = document.createElement('div');
-        letterHeader.className = 'genre-letter-header';
-        letterHeader.textContent = currentLetter;
-        genresContainer.appendChild(letterHeader);
-      }
+  if (firstLetter !== currentLetter) {
+    currentLetter = firstLetter;
+    const letterHeader = document.createElement('div');
+    letterHeader.className = 'genre-letter-header';
+    letterHeader.textContent = currentLetter;
+    genresContainer.appendChild(letterHeader);
+  }
 
-      const genreItem = document.createElement('div');
-      genreItem.className = 'genre-filter-item';
+  const genreItem = document.createElement('div');
+  genreItem.className = 'genre-filter-item';
 
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'genre-checkbox';
-      checkbox.id = `genre-${genre.Name}`;
-      checkbox.value = genre.Name;
-      checkbox.checked = Array.isArray(musicPlayerState.selectedGenres) &&
-                        musicPlayerState.selectedGenres.includes(genre.Name);
+  const img = document.createElement('img');
+  img.className = 'genre-image';
+  if (genre.ImageTags && genre.ImageTags.Primary) {
+    img.src = `/Items/${genre.Id}/Images/Primary?tag=${genre.ImageTags.Primary}&quality=90&maxHeight=80`;
+    img.onerror = () => { img.src = placeholderImage; };
+  } else {
+    img.src = placeholderImage;
+  }
+  img.alt = genre.Name;
 
-      const label = document.createElement('label');
-      label.htmlFor = `genre-${genre.Name}`;
-      label.innerHTML = `<i class="fas fa-headphones-alt genre-icon"></i> ${genre.Name}`;
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'genre-checkbox';
+  checkbox.id = `genre-${genre.Id}`;
+  checkbox.value = genre.Name;
+  checkbox.checked = Array.isArray(musicPlayerState.selectedGenres) &&
+                    musicPlayerState.selectedGenres.includes(genre.Name);
 
-      genreItem.append(checkbox, label);
-      genresContainer.appendChild(genreItem);
-    });
+  const label = document.createElement('label');
+  label.htmlFor = `genre-${genre.Id}`;
+  label.innerHTML = `<i class="fas fa-headphones-alt genre-icon"></i> ${genre.Name}`;
+
+  img.style.cursor = 'pointer';
+  img.addEventListener('click', (e) => {
+    e.stopPropagation();
+    checkbox.checked = !checkbox.checked;
+    checkbox.dispatchEvent(new Event('change'));
+  });
+
+  genreItem.style.cursor = 'pointer';
+  genreItem.addEventListener('click', (e) => {
+    if (e.target !== checkbox && e.target !== label) {
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change'));
+    }
+  });
+
+  genreItem.append(checkbox, img, label);
+  genresContainer.appendChild(genreItem);
+});
 
     updateSelectedCount();
 

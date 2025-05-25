@@ -23,26 +23,42 @@ async function updateLyricsDatabase() {
         let updatedCount = 0;
         const originalPlaylist = musicPlayerState.playlist;
         const originalIndex = musicPlayerState.currentIndex;
+        const db = await musicDB.openDB();
+        const transaction = db.transaction(['lyrics'], 'readwrite');
+        const lyricsStore = transaction.objectStore('lyrics');
+        await new Promise((resolve, reject) => {
+            const clearRequest = lyricsStore.clear();
+            clearRequest.onsuccess = resolve;
+            clearRequest.onerror = reject;
+        });
 
         for (let i = 0; i < tracks.length; i++) {
             const track = tracks[i];
             musicPlayerState.playlist = [track];
             musicPlayerState.currentIndex = 0;
             delete musicPlayerState.lyricsCache[track.Id];
-            await fetchLyrics();
-            if (musicPlayerState.lyricsCache[track.Id]) {
-                updatedCount++;
+
+            const lyrics = await fetchLyrics();
+            if (lyrics) {
+                try {
+                    await musicDB.saveLyrics(track.Id, lyrics);
+                    updatedCount++;
+                } catch (err) {
+                    console.error(`Şarkı sözü kaydedilemedi (${track.Name}):`, err);
+                }
             }
         }
         musicPlayerState.playlist = originalPlaylist;
         musicPlayerState.currentIndex = originalIndex;
+
         showNotification(
             `<i class="fas fa-music"></i> ${updatedCount} ${config.languageLabels.fetchLyrics || "şarkı sözü veri tabanına eklendi"}`,
             3000,
             'db'
-            );
+        );
         await loadStatsIntoModal();
     } catch (err) {
+        console.error('Şarkı sözü güncelleme hatası:', err);
         showNotification(
             `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.fetchLyricsError || "Şarkı sözleri veri tabanına eklenemedi"}`,
             3000,
