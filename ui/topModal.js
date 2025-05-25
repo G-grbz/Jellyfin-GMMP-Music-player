@@ -8,7 +8,7 @@ import { saveCurrentPlaylistToJellyfin } from "../core/playlist.js";
 import { fetchJellyfinPlaylists } from "../core/jellyfinPlaylists.js";
 
 const config = getConfig();
-const DEFAULT_ARTWORK = "url('/web/slider/src/images/defaultArt.png')";
+const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
 
 let topTracksOverlay = null;
 let activeTab = 'top';
