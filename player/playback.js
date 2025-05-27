@@ -353,7 +353,10 @@ function addMetaItem(className, icon, text) {
 
   const span = document.createElement("span");
   span.className = `${className}-meta`;
-  span.title = config.languageLabels[className] || className;
+
+  const label = config.languageLabels[className] || className;
+  span.title = `${label}: ${text}`;
+
   span.innerHTML = `<i class="${icon}"></i> ${text}`;
   musicPlayerState.metaContainer.appendChild(span);
 }
