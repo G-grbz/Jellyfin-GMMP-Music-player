@@ -123,8 +123,6 @@ albumArt.addEventListener("click", () => {
 
   trackInfo.append(titleContainer, artist);
 
-  const isMobile = window.matchMedia("(max-width: 768px)").matches;
-
   const repeatBtn = createButton({ iconClass: "fas fa-repeat", title: config.languageLabels.repeatModOff, onClick: toggleRepeatMode });
   const shuffleBtn = createButton({ iconClass: "fas fa-random", title: `${config.languageLabels.shuffle}: ${config.languageLabels.shuffleOff}`, onClick: toggleShuffle });
   const removeOnPlayBtn = createButton({
@@ -181,28 +179,13 @@ albumArt.addEventListener("click", () => {
     volumeBtn.innerHTML = `<i class="${icon}"></i>`;
   }
 
-
   const controls = document.createElement("div");
   controls.className = "player-controls";
 
   const controlElements = [prevBtn, playPauseBtn, nextBtn, repeatBtn, shuffleBtn, removeOnPlayBtn, refreshBtn, genreFilterBtn, lyricsBtn, topTracksBtn, volumeBtn];
 
-  if (isMobile) {
-    const scrollableControls = document.createElement("div");
-    scrollableControls.style.display = "flex";
-    scrollableControls.style.gap = "5px";
-    scrollableControls.style.padding = "0 10px";
-    controlElements.forEach(btn => {
-      btn.style.flexShrink = "0";
-      btn.style.scrollSnapAlign = "center";
-      scrollableControls.appendChild(btn);
-    });
-    controls.appendChild(scrollableControls);
-    volumeSlider.style.display = "none";
-  } else {
-    controlElements.forEach(btn => controls.appendChild(btn));
-    controls.appendChild(volumeSlider);
-  }
+  controlElements.forEach(btn => controls.appendChild(btn));
+  controls.appendChild(volumeSlider);
 
   const progressContainer = document.createElement("div");
   progressContainer.className = "player-progress-container";

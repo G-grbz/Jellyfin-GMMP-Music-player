@@ -8,6 +8,8 @@ const defaultConfig = {
   gruplimit: 200,
   id3limit: 10,
   historylimit: 10,
+  playerTheme: 'dark',
+  playerStyle: 'player',
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -25,6 +27,8 @@ export function getConfig() {
     gruplimit: parseInt(localStorage.getItem('gruplimit'), 10) || defaultConfig.gruplimit,
     id3limit: parseInt(localStorage.getItem('id3limit'), 10) || defaultConfig.id3limit,
     historylimit: parseInt(localStorage.getItem('historylimit'), 10) || defaultConfig.historylimit,
+    playerTheme: localStorage.getItem('playerTheme') || defaultConfig.playerTheme,
+    playerStyle: localStorage.getItem('playerStyle') || defaultConfig.playerStyle
   };
 }
 
@@ -37,7 +41,7 @@ export function updateConfig(newConfig) {
     localStorage.setItem('muziklimit', newConfig.muziklimit);
   }
 
-   if (newConfig.albumlimit !== undefined) {
+  if (newConfig.albumlimit !== undefined) {
     localStorage.setItem('albumlimit', newConfig.albumlimit);
   }
 
@@ -59,6 +63,14 @@ export function updateConfig(newConfig) {
 
   if (newConfig.defaultLanguage !== undefined) {
     localStorage.setItem('defaultLanguage', newConfig.defaultLanguage);
+  }
+
+  if (newConfig.playerTheme !== undefined) {
+    localStorage.setItem('playerTheme', newConfig.playerTheme);
+  }
+
+  if (newConfig.playerStyle !== undefined) {
+    localStorage.setItem('playerStyle', newConfig.playerStyle);
   }
 
   const configUpdatedEvent = new CustomEvent('configUpdated', {

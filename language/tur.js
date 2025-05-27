@@ -1,5 +1,12 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  playerTheme: "Oynatıcı Teması",
+  darkTheme: "Karanlık",
+  lightTheme: "Aydınlık",
+  playerStyle: "Stil",
+  yatayStil: "Yatay Görünüm",
+  dikeyStil: "Dikey Görünüm",
+  removeTrack: "Listeden Sil",
   today: "Bugün",
   yesterday: "Dün",
   daysAgo: "Gün önce",

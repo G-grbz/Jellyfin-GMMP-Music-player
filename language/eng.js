@@ -1,5 +1,12 @@
 export const languageLabels = {
   defaultLanguage: "Default Language",
+  playerTheme: "Player Theme",
+  darkTheme: "Dark",
+  lightTheme: "Light",
+  playerStyle: "Style",
+  yatayStil: "Horizontal View",
+  dikeyStil: "Vertical View",
+  removeTrack: "Remove from List",
   today: "Today",
   yesterday: "Yesterday",
   daysAgo: "Days ago",

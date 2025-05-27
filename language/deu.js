@@ -1,5 +1,12 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  playerTheme: "Player-Design",
+  darkTheme: "Dunkel",
+  lightTheme: "Hell",
+  playerStyle: "Stil",
+  yatayStil: "Horizontale Ansicht",
+  dikeyStil: "Vertikale Ansicht",
+  removeTrack: "Aus Liste entfernen",
   today: "Heute",
   yesterday: "Gestern",
   daysAgo: "Vor Tagen",

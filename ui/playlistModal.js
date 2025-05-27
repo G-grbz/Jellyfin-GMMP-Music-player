@@ -642,26 +642,41 @@ export function showRemoveConfirmModal(trackIndex, trackName) {
     e.stopPropagation();
     try {
       const playlistId = musicPlayerState.currentPlaylistId;
-      const trackId    = musicPlayerState.playlist[trackIndex].Id;
+      const trackId = musicPlayerState.playlist[trackIndex].Id;
+      const isCurrentTrack = trackIndex === musicPlayerState.currentIndex;
 
       if (playlistId) {
         await removeItemsFromPlaylist(playlistId, [trackId]);
         showNotification(
-        `<i class="fas fa-check-circle"></i> ${config.languageLabels.trackRemoved || "Parça kaldırıldı"}`,
-        3000,
-        'success'
-      );
-        updateNextTracks();
+          `<i class="fas fa-check-circle"></i> ${config.languageLabels.trackRemoved || "Parça kaldırıldı"}`,
+          3000,
+          'success'
+        );
       } else {
         showNotification(
           `<i class="fas fa-check-circle"></i> ${config.languageLabels.trackRemovedLocal || "Parça listeden kaldırıldı"}`,
           3000,
           'success'
-      );
-        updateNextTracks();
+        );
+      }
+      musicPlayerState.playlist.splice(trackIndex, 1);
+
+      if (isCurrentTrack) {
+        if (musicPlayerState.playlist.length > 0) {
+          const newIndex = Math.min(trackIndex, musicPlayerState.playlist.length - 1);
+          playTrack(newIndex);
+        } else {
+          if (musicPlayerState.audioElement) {
+            musicPlayerState.audioElement.pause();
+            musicPlayerState.audioElement.currentTime = 0;
+          }
+          musicPlayerState.currentIndex = -1;
+          musicPlayerState.isPlaying = false;
+        }
+      } else if (trackIndex < musicPlayerState.currentIndex) {
+        musicPlayerState.currentIndex--;
       }
 
-      musicPlayerState.playlist.splice(trackIndex, 1);
       updatePlaylistModal();
     } catch (err) {
       console.error(err);
@@ -684,13 +699,13 @@ export function showRemoveConfirmModal(trackIndex, trackName) {
 
 export function showRemoveSelectedConfirmModal() {
   const selected = Array.from(musicPlayerState.selectedTracks);
-  const count    = selected.length;
+  const count = selected.length;
   if (!count) {
     showNotification(
-    `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.noSelection || "Hiç parça seçilmedi"}`,
-    3000,
-    'warning'
-);
+      `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.noSelection || "Hiç parça seçilmedi"}`,
+      3000,
+      'warning'
+    );
     return;
   }
 
@@ -715,25 +730,45 @@ export function showRemoveSelectedConfirmModal() {
     e.stopPropagation();
     try {
       const playlistId = musicPlayerState.currentPlaylistId;
-      const trackIds   = selected.map(i => musicPlayerState.playlist[i].Id);
+      const trackIds = selected.map(i => musicPlayerState.playlist[i].Id);
+      const isCurrentTrackSelected = selected.includes(musicPlayerState.currentIndex);
+      const currentTrackWasRemoved = isCurrentTrackSelected;
 
       if (playlistId) {
         await removeItemsFromPlaylist(playlistId, trackIds);
         showNotification(
           `<i class="fas fa-check-circle"></i> ${count} ${config.languageLabels.tracksRemoved || "parça kaldırıldı"}`,
-            2000,
-            'success'
-          );
+          2000,
+          'success'
+        );
       } else {
         showNotification(
-        `<i class="fas fa-info-circle"></i> ${count} ${config.languageLabels.tracksRemovedLocal || "parça listeden kaldırıldı"}`,
-        2000,
-        'info'
+          `<i class="fas fa-info-circle"></i> ${count} ${config.languageLabels.tracksRemovedLocal || "parça listeden kaldırıldı"}`,
+          2000,
+          'info'
         );
       }
+      selected.sort((a, b) => b - a).forEach(i => {
+        musicPlayerState.playlist.splice(i, 1);
+        if (i < musicPlayerState.currentIndex) {
+          musicPlayerState.currentIndex--;
+        }
+      });
 
-      selected.sort((a,b) => b - a)
-              .forEach(i => musicPlayerState.playlist.splice(i,1));
+      if (currentTrackWasRemoved) {
+        if (musicPlayerState.playlist.length > 0) {
+          const newIndex = Math.min(musicPlayerState.currentIndex, musicPlayerState.playlist.length - 1);
+          playTrack(newIndex);
+        } else {
+          if (musicPlayerState.audioElement) {
+            musicPlayerState.audioElement.pause();
+            musicPlayerState.audioElement.currentTime = 0;
+          }
+          musicPlayerState.currentIndex = -1;
+          musicPlayerState.isPlaying = false;
+        }
+      }
+
       musicPlayerState.selectedTracks.clear();
       updatePlaylistModal();
     } catch (err) {

@@ -1,4 +1,5 @@
 import { getConfig } from './configLoader.js';
+import { loadCSS } from "../main.js";
 import { getLanguageLabels, getDefaultLanguage } from '../language/index.js';
 import { showNotification } from "../ui/notification.js";
 
@@ -186,8 +187,12 @@ export function createSettingsModal() {
 
     function applySettings(reload = false) {
         const formData = new FormData(form);
+        const oldTheme = getConfig().playerTheme;
+        const oldPlayerStyle = getConfig().playerStyle;
         const updatedConfig = {
             ...config,
+            playerTheme: formData.get('playerTheme'),
+            playerStyle: formData.get('playerStyle'),
             defaultLanguage: formData.get('defaultLanguage'),
             sliderDuration: parseInt(formData.get('sliderDuration'), 10),
             limit: parseInt(formData.get('limit'), 10),
@@ -275,6 +280,9 @@ export function createSettingsModal() {
         };
 
         updateConfig(updatedConfig);
+        if (oldTheme !== updatedConfig.playerTheme || oldPlayerStyle !== updatedConfig.playerStyle) {
+        loadCSS();
+    }
 
         if (reload) {
             location.reload();
@@ -657,6 +665,57 @@ function createMusicPanel(config, labels) {
     });
 
     languageDiv.append(languageLabel, languageSelect);
+    section.appendChild(languageDiv);
+
+    const styleDiv = document.createElement('div');
+    styleDiv.className = 'setting-item';
+    const styleLabel = document.createElement('label');
+    styleLabel.textContent = labels.playerStyle || 'Player Stili:';
+    const styleSelect = document.createElement('select');
+    styleSelect.name = 'playerStyle';
+
+    const styles = [
+        { value: 'player', label: labels.yatayStil || 'Yatay Stil' },
+        { value: 'newplayer', label: labels.dikeyStil || 'Dikey Stil' }
+    ];
+
+    styles.forEach(style => {
+        const option = document.createElement('option');
+        option.value = style.value;
+        option.textContent = style.label;
+        if (style.value === (config.playerStyle || 'player')) {
+            option.selected = true;
+        }
+        styleSelect.appendChild(option);
+    });
+
+    styleDiv.append(styleLabel, styleSelect);
+    section.appendChild(styleDiv);
+
+    const themeDiv = document.createElement('div');
+    themeDiv.className = 'setting-item';
+    const themeLabel = document.createElement('label');
+    themeLabel.textContent = labels.playerTheme || 'Player Teması:';
+    const themeSelect = document.createElement('select');
+    themeSelect.name = 'playerTheme';
+
+    const themes = [
+        { value: 'dark', label: labels.darkTheme || 'Karanlık Tema' },
+        { value: 'light', label: labels.lightTheme || 'Aydınlık Tema' }
+    ];
+
+    themes.forEach(theme => {
+        const option = document.createElement('option');
+        option.value = theme.value;
+        option.textContent = theme.label;
+        if (theme.value === (config.playerTheme || 'dark')) {
+            option.selected = true;
+        }
+        themeSelect.appendChild(option);
+    });
+
+    themeDiv.append(themeLabel, themeSelect);
+    section.appendChild(themeDiv);
 
     const musicLimitDiv = document.createElement('div');
     musicLimitDiv.className = 'setting-item';
@@ -669,7 +728,7 @@ function createMusicPanel(config, labels) {
     musicLimitInput.min = 1;
     musicLimitInput.max = 9999;
     musicLimitDiv.append(musicLimitLabel, musicLimitInput);
-    section.appendChild(languageDiv, musicLimitDiv);
+    section.appendChild( musicLimitDiv);
 
     const songLimitDiv = document.createElement('div');
     songLimitDiv.className = 'setting-item';

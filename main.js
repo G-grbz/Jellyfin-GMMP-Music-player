@@ -3,6 +3,9 @@ import { refreshPlaylist } from "./core/playlist.js";
 import { updateProgress, updateDuration } from "./player/progress.js";
 import { checkForNewMusic } from "./ui/artistModal.js";
 import { loadJSMediaTags } from "./lyrics/id3Reader.js";
+import { getConfig } from "./core/configLoader.js";
+
+const config = getConfig();
 
 function waitForElement(selector, timeout = 5000) {
   return new Promise((resolve, reject) => {
@@ -25,11 +28,17 @@ function waitForElement(selector, timeout = 5000) {
   });
 }
 
-function loadCSS() {
-  const cssPath = "./GMMP/src/player.css";
+export function loadCSS() {
+  const config = getConfig();
+  const theme = config.playerTheme || 'dark';
+  const playerStyle = config.playerStyle || 'player';
+
+  const existingLinks = document.querySelectorAll('link[href*="player-"], link[href*="newplayer-"]');
+  existingLinks.forEach(link => link.remove());
+
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = cssPath;
+  link.href = `./GMMP/src/${playerStyle}-${theme}.css`;
   document.head.appendChild(link);
 }
 

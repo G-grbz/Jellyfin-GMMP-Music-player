@@ -1,5 +1,12 @@
 export const languageLabels = {
   defaultLanguage: "Язык по умолчанию",
+  playerTheme: "Тема плеера",
+  darkTheme: "Тёмная",
+  lightTheme: "Светлая",
+  playerStyle: "Стиль",
+  yatayStil: "Горизонтальный вид",
+  dikeyStil: "Вертикальный вид",
+  removeTrack: "Удалить из списка",
   today: "Сегодня",
   yesterday: "Вчера",
   daysAgo: "Дней назад",
