@@ -221,6 +221,20 @@ export function createArtistModal() {
     const artistImage = document.createElement("div");
     artistImage.className = "modal-artist-image";
     artistImage.style.backgroundImage = DEFAULT_ARTWORK;
+    artistImage.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
+        if (!currentTrack) return;
+
+        const artistId = currentTrack.AlbumArtistId ||
+                       currentTrack.ArtistItems?.[0]?.Id ||
+                       currentTrack.ArtistId;
+
+        if (artistId) {
+            const jellyfinServer = window.location.origin;
+            window.open(`/web/#/details?id=${artistId}`, '_blank');
+        }
+    });
 
     const artistInfo = document.createElement("div");
     artistInfo.className = "modal-artist-info";
@@ -261,6 +275,20 @@ export function createArtistModal() {
     const artistName = document.createElement("h2");
     artistName.className = "modal-artist-name";
     artistName.textContent = "";
+    artistName.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
+        if (!currentTrack) return;
+
+        const artistId = currentTrack.AlbumArtistId ||
+                       currentTrack.ArtistItems?.[0]?.Id ||
+                       currentTrack.ArtistId;
+
+        if (artistId) {
+            const jellyfinServer = window.location.origin;
+            window.open(`/web/#/details?id=${artistId}`, '_blank');
+        }
+    });
 
     const artistMeta = document.createElement("div");
     artistMeta.className = "modal-artist-meta";
@@ -294,7 +322,7 @@ export function createArtistModal() {
         if (e.target === artistModal) toggleArtistModal(false);
     });
 
-    return artistModal;
+        return artistModal;
 }
 
 async function loadAllMusicFromJellyfin() {
@@ -1762,7 +1790,6 @@ export async function toggleArtistModal(show, artistName = "", artistId = null) 
         if (!artistModal.classList.contains("hidden")) {
             artistName = currentModalArtist.name;
             artistId = currentModalArtist.id;
-            setupArtistImageClickHandler();
         } else {
             selectedTrackIds = new Set();
             currentModalArtist = { name: artistName, id: artistId };
@@ -1930,25 +1957,4 @@ function createSortHeader(className, text, sortOption) {
     });
 
     return header;
-}
-
-function setupArtistImageClickHandler() {
-    const artistImage = document.querySelector("#artist-modal .modal-artist-image");
-    if (artistImage) {
-        artistImage.style.cursor = "pointer";
-        artistImage.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
-            if (!currentTrack) return;
-
-            const artistId = currentTrack.AlbumArtistId ||
-                           currentTrack.ArtistItems?.[0]?.Id ||
-                           currentTrack.ArtistId;
-
-            if (artistId) {
-                const jellyfinServer = window.location.origin;
-                window.open(`${jellyfinServer}/web/#/details?id=${artistId}`, '_blank');
-            }
-        });
-    }
 }
