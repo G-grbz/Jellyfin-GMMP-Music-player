@@ -968,15 +968,21 @@ async function showSaveToPlaylistModal() {
 
     const nameInputContainer = document.createElement("div");
     nameInputContainer.className = "name-input-container";
+
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.placeholder = config.languageLabels.enterPlaylistName;
-    nameInput.value = `${artistModal.querySelector(".modal-artist-name").textContent} - ${new Date().toLocaleString('tr-TR', {
+
+    nameInput.value = `${artistModal.querySelector(".modal-artist-name").textContent} - ${new Date().toLocaleString(config.dateLocale || 'tr-TR', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     })}`;
+
     nameInputContainer.appendChild(nameInput);
+
 
     const publicLabel = document.createElement("label");
     publicLabel.className = "public-checkbox-label";
@@ -1630,16 +1636,21 @@ function createTrackElement(track, index, showPosition = true) {
 
     const trackDateAdded = document.createElement("div");
     trackDateAdded.className = "modal-track-date-added";
+
     if (track.DateCreated) {
         const date = new Date(track.DateCreated);
-        trackDateAdded.textContent = date.toLocaleDateString('tr-TR', {
+        trackDateAdded.textContent = date.toLocaleString(config.dateLocale || 'tr-TR', {
             day: '2-digit',
             month: '2-digit',
-            year: 'numeric'
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
         });
     } else {
-        trackDateAdded.textContent = "-";
+    trackDateAdded.textContent = "-";
     }
+
 
     trackInfo.append(trackTitle, trackArtist, trackAlbum, trackDateAdded);
 

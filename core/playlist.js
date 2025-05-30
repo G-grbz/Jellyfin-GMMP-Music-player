@@ -6,7 +6,6 @@ import { showNotification } from "../ui/notification.js";
 import { updateModernTrackInfo, playTrack } from "../player/playback.js";
 import { updatePlaylistModal } from "../ui/playlistModal.js";
 
-
 const config = getConfig();
 const BATCH_SIZE = config.gruplimit;
 const EXCLUDED_LISTS_HISTORY = config.historylimit;

@@ -10,6 +10,7 @@ const defaultConfig = {
   historylimit: 10,
   playerTheme: 'dark',
   playerStyle: 'player',
+  dateLocale: 'tr-TR',
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -28,7 +29,8 @@ export function getConfig() {
     id3limit: parseInt(localStorage.getItem('id3limit'), 10) || defaultConfig.id3limit,
     historylimit: parseInt(localStorage.getItem('historylimit'), 10) || defaultConfig.historylimit,
     playerTheme: localStorage.getItem('playerTheme') || defaultConfig.playerTheme,
-    playerStyle: localStorage.getItem('playerStyle') || defaultConfig.playerStyle
+    playerStyle: localStorage.getItem('playerStyle') || defaultConfig.playerStyle,
+    dateLocale: localStorage.getItem('dateLocale') || 'tr-TR',
   };
 }
 
@@ -71,6 +73,10 @@ export function updateConfig(newConfig) {
 
   if (newConfig.playerStyle !== undefined) {
     localStorage.setItem('playerStyle', newConfig.playerStyle);
+  }
+
+  if (newConfig.dateLocale !== undefined) {
+    localStorage.setItem('dateLocale', newConfig.dateLocale);
   }
 
   const configUpdatedEvent = new CustomEvent('configUpdated', {

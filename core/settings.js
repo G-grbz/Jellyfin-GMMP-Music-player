@@ -194,6 +194,7 @@ export function createSettingsModal() {
             playerTheme: formData.get('playerTheme'),
             playerStyle: formData.get('playerStyle'),
             defaultLanguage: formData.get('defaultLanguage'),
+            dateLocale: formData.get('dateLocale') || 'tr-TR',
             sliderDuration: parseInt(formData.get('sliderDuration'), 10),
             limit: parseInt(formData.get('limit'), 10),
             gecikmeSure: parseInt(formData.get('gecikmeSure'), 10),
@@ -716,6 +717,49 @@ function createMusicPanel(config, labels) {
 
     themeDiv.append(themeLabel, themeSelect);
     section.appendChild(themeDiv);
+
+    const dateLocaleDiv = document.createElement('div');
+    dateLocaleDiv.className = 'setting-item';
+    const dateLocaleLabel = document.createElement('label');
+    dateLocaleLabel.textContent = labels.dateLocale || 'Tarih Formatı:';
+    const dateLocaleSelect = document.createElement('select');
+    dateLocaleSelect.name = 'dateLocale';
+
+    const locales = [
+    { value: 'tr-TR', label: '🇹🇷 Türkçe' },
+    { value: 'en-US', label: '🇺🇸 English (US)' },
+    { value: 'en-GB', label: '🇬🇧 English (UK)' },
+    { value: 'de-DE', label: '🇩🇪 Deutsch' },
+    { value: 'fr-FR', label: '🇫🇷 Français' },
+    { value: 'es-ES', label: '🇪🇸 Español' },
+    { value: 'it-IT', label: '🇮🇹 Italiano' },
+    { value: 'ru-RU', label: '🇷🇺 Русский' },
+    { value: 'ja-JP', label: '🇯🇵 日本語' },
+    { value: 'zh-CN', label: '🇨🇳 简体中文' },
+    { value: 'pt-PT', label: '🇵🇹 Português (Portugal)' },
+    { value: 'pt-BR', label: '🇧🇷 Português (Brasil)' },
+    { value: 'nl-NL', label: '🇳🇱 Nederlands' },
+    { value: 'sv-SE', label: '🇸🇪 Svenska' },
+    { value: 'pl-PL', label: '🇵🇱 Polski' },
+    { value: 'uk-UA', label: '🇺🇦 Українська' },
+    { value: 'ko-KR', label: '🇰🇷 한국어' },
+    { value: 'ar-SA', label: '🇸🇦 العربية' },
+    { value: 'hi-IN', label: '🇮🇳 हिन्दी' },
+    { value: 'fa-IR', label: '🇮🇷 فارسی' },
+];
+
+    locales.forEach(locale => {
+        const option = document.createElement('option');
+        option.value = locale.value;
+        option.textContent = locale.label;
+        if (locale.value === config.dateLocale) {
+            option.selected = true;
+        }
+        dateLocaleSelect.appendChild(option);
+    });
+
+    dateLocaleDiv.append(dateLocaleLabel, dateLocaleSelect);
+    section.appendChild(dateLocaleDiv);
 
     const musicLimitDiv = document.createElement('div');
     musicLimitDiv.className = 'setting-item';

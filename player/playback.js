@@ -8,7 +8,7 @@ import { fetchLyrics, updateSyncedLyrics, startLyricsSync } from "../lyrics/lyri
 import { updatePlaylistModal } from "../ui/playlistModal.js";
 import { showNotification } from "../ui/notification.js";
 import { updateProgress, updateDuration, setupAudioListeners } from "./progress.js";
-import { updateNextTracks } from "../ui/playerUI.js";
+import { updateNextTracks, checkMarqueeNeeded } from "../ui/playerUI.js";
 import { refreshPlaylist } from "../core/playlist.js";
 
 const config = getConfig();
@@ -260,10 +260,24 @@ export async function updateModernTrackInfo(track) {
   musicPlayerState.modernTitleEl.textContent = title;
   musicPlayerState.modernArtistEl.textContent = artists.join(", ");
 
+  checkMarqueeNeeded(musicPlayerState.modernTitleEl);
+  setTimeout(() => checkMarqueeNeeded(musicPlayerState.modernTitleEl), 500);
+
   await Promise.all([
     loadAlbumArt(track),
     updateTrackMeta(track)
   ]);
+
+  if (musicPlayerState.favoriteBtn) {
+    const isFavorite = track?.UserData?.IsFavorite || false;
+    musicPlayerState.favoriteBtn.innerHTML = isFavorite
+      ? '<i class="fas fa-heart" style="color:#e91e63"></i>'
+      : '<i class="fas fa-heart"></i>';
+    musicPlayerState.favoriteBtn.title = isFavorite
+      ? config.languageLabels.removeFromFavorites || "Favorilerden kaldır"
+      : config.languageLabels.addToFavorites || "Favorilere ekle";
+  }
+
 
   updateMediaMetadata(track);
 }
@@ -282,28 +296,51 @@ async function updateTrackMeta(track) {
   if (!musicPlayerState.metaContainer) {
     musicPlayerState.metaContainer = document.createElement("div");
     musicPlayerState.metaContainer.className = "player-meta-container";
+    Object.assign(musicPlayerState.metaContainer.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      overflow: 'hidden',
+      textAlign: 'center'
+    });
     musicPlayerState.metaWrapper.appendChild(musicPlayerState.metaContainer);
   }
 
   musicPlayerState.metaContainer.innerHTML = '';
 
+  const tags = await readID3Tags(track.Id);
   const metaItems = [
-    { condition: track?.Album, className: 'album', icon: 'fas fa-compact-disc', text: track.Album },
-    { condition: track?.IndexNumber, className: 'track-number', icon: 'fas fa-list-ol', text: track.IndexNumber },
-    { condition: track?.ProductionYear, className: 'year', icon: 'fas fa-calendar-alt', text: track.ProductionYear }
+    { key: 'track-number', show: track?.IndexNumber != null, icon: 'fas fa-list-ol', text: track.IndexNumber },
+    { key: 'year', show: track?.ProductionYear != null, icon: 'fas fa-calendar-alt', text: track.ProductionYear },
+    { key: 'album', show: !!track?.Album, icon: 'fas fa-compact-disc', text: track.Album },
+    { key: 'genre', show: !!tags?.genre, icon: 'fas fa-music', text: tags.genre }
   ];
 
-  metaItems.forEach(item => {
-    if (item.condition) {
-      addMetaItem(item.className, item.icon, item.text);
+  for (const item of metaItems) {
+    if (!item.show || item.text == null) continue;
+    const span = document.createElement('span');
+    span.className = `${item.key}-meta`;
+    const label = config.languageLabels[item.key] || item.key;
+    span.title = `${label}: ${item.text}`;
+    span.innerHTML = `<i class="${item.icon}" style="margin-right:4px"></i>${item.text}`;
+    if (item.key === 'track-number' || item.key === 'year') {
+      Object.assign(span.style, {
+        flex: '0 0 auto',
+        whiteSpace: 'nowrap'
+      });
+    } else {
+      Object.assign(span.style, {
+        minWidth: '0',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      });
     }
-  });
 
-  const tags = await readID3Tags(track.Id);
-  if (tags?.genre) {
-    addMetaItem('genre', 'fas fa-music', tags.genre);
+    musicPlayerState.metaContainer.appendChild(span);
   }
 }
+
 
 function setAlbumArt(imageUrl) {
   if (!musicPlayerState.albumArtEl) return;
@@ -447,6 +484,8 @@ export function playTrack(index) {
   updatePlaylistModal();
   startLyricsSync();
   reportPlaybackStart(track);
+  checkMarqueeNeeded(musicPlayerState.modernTitleEl);
+  setTimeout(() => checkMarqueeNeeded(musicPlayerState.modernTitleEl), 500);
 
   const audio = musicPlayerState.audio;
   audio.onended = handleSongEnd;

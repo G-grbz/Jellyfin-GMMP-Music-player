@@ -13,7 +13,8 @@ import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
 import { toggleArtistModal, setupArtistClickHandler, checkForNewMusic } from "./artistModal.js";
 import { showGenreFilterModal } from "./genreFilterModal.js";
 import { showTopTracksModal } from "./topModal.js";
-
+import { getAuthToken } from "../core/auth.js";
+import { showNotification } from "./notification.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
@@ -78,8 +79,32 @@ export function createModernPlayerUI() {
   });
 
   const albumArt = document.createElement("div");
-albumArt.id = "player-album-art";
-albumArt.addEventListener("click", () => {
+  albumArt.id = "player-album-art";
+
+  const favoriteBtn = document.createElement("div");
+  favoriteBtn.className = "musicfavorite-btn hidden";
+  favoriteBtn.innerHTML = '<i class="fas fa-heart"></i>';
+  favoriteBtn.title = config.languageLabels.addToFavorites || "Favorilere ekle";
+  favoriteBtn.onclick = (e) => {
+    e.stopPropagation();
+    toggleFavorite();
+  };
+
+  const albumArtContainer = document.createElement("div");
+  albumArtContainer.className = "album-art-container";
+  albumArtContainer.append(albumArt, favoriteBtn);
+  albumArtContainer.addEventListener("mouseenter", () => {
+    const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
+    if (currentTrack) {
+      favoriteBtn.classList.remove("hidden");
+    }
+  });
+
+  albumArtContainer.addEventListener("mouseleave", () => {
+    favoriteBtn.classList.add("hidden");
+  });
+
+  albumArtContainer.addEventListener("click", () => {
     const currentTrack = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
     if (!currentTrack) return;
 
@@ -93,7 +118,11 @@ albumArt.addEventListener("click", () => {
                    null;
 
     toggleArtistModal(true, artistName, artistId);
-});
+  });
+
+  albumArtContainer.addEventListener("mouseleave", () => {
+    favoriteBtn.classList.add("hidden");
+  });
 
   const trackInfo = document.createElement("div");
   trackInfo.className = "player-track-info";
@@ -106,6 +135,25 @@ albumArt.addEventListener("click", () => {
   titleText.className = "marquee-text";
   titleText.textContent = config.languageLabels.noSongSelected;
   titleContainer.appendChild(titleText);
+
+  const observer = new MutationObserver(() => {
+    checkMarqueeNeeded(titleText);
+  });
+
+  observer.observe(titleText, {
+    childList: true,
+    characterData: true,
+    subtree: true
+  });
+
+
+  window.addEventListener('resize', () => {
+    checkMarqueeNeeded(titleText);
+  });
+
+setTimeout(() => {
+  checkMarqueeNeeded(titleText);
+}, 100);
 
   const artist = document.createElement("div");
   artist.id = "player-track-artist";
@@ -182,7 +230,7 @@ albumArt.addEventListener("click", () => {
   const controls = document.createElement("div");
   controls.className = "player-controls";
 
-  const controlElements = [prevBtn, playPauseBtn, nextBtn, repeatBtn, shuffleBtn, removeOnPlayBtn, refreshBtn, genreFilterBtn, lyricsBtn, topTracksBtn, volumeBtn];
+  const controlElements = [prevBtn, playPauseBtn, nextBtn, repeatBtn, shuffleBtn, removeOnPlayBtn, lyricsBtn, refreshBtn, genreFilterBtn, topTracksBtn, volumeBtn];
 
   controlElements.forEach(btn => controls.appendChild(btn));
   controls.appendChild(volumeSlider);
@@ -223,7 +271,7 @@ albumArt.addEventListener("click", () => {
   lyricsContainer.id = "player-lyrics-container";
   lyricsContainer.className = "lyrics-hidden";
 
-  player.append(lyricsContainer, topControlsContainer, albumArt, nextTracksContainer, trackInfo, progressContainer, controls);
+  player.append(lyricsContainer, topControlsContainer, albumArtContainer, nextTracksContainer, trackInfo, progressContainer, controls);
   document.body.appendChild(player);
   createPlaylistModal();
 
@@ -233,6 +281,7 @@ albumArt.addEventListener("click", () => {
     modernTitleEl: titleText,
     modernArtistEl: artist,
     progressBar,
+    favoriteBtn,
     progress,
     progressHandle,
     playPauseBtn,
@@ -375,4 +424,89 @@ async function getTrackImage(track, cache) {
   }
 
   return null;
+}
+
+async function toggleFavorite() {
+  const { playlist, currentIndex, favoriteBtn } = musicPlayerState;
+  const track = playlist?.[currentIndex];
+  if (!track?.Id) return;
+
+  try {
+    const authToken = getAuthToken();
+    if (!authToken) {
+      showNotification(
+        `<i class="fas fa-exclamation-circle"></i> ${config.languageLabels.authRequired || "Kimlik doğrulama hatası"}`,
+        3000,
+        'error'
+      );
+      return;
+    }
+
+    const isFavorite = track.UserData?.IsFavorite || false;
+    const url = `/Users/${window.ApiClient.getCurrentUserId()}/FavoriteItems/${track.Id}`;
+    const method = isFavorite ? "DELETE" : "POST";
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        "X-Emby-Token": authToken,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (response.ok) {
+      track.UserData = track.UserData || {};
+      track.UserData.IsFavorite = !isFavorite;
+
+      if (favoriteBtn) {
+        favoriteBtn.innerHTML = track.UserData.IsFavorite
+          ? '<i class="fas fa-heart" style="color:#e91e63"></i>'
+          : '<i class="fas fa-heart"></i>';
+        favoriteBtn.title = track.UserData.IsFavorite
+          ? config.languageLabels.removeFromFavorites || "Favorilerden kaldır"
+          : config.languageLabels.addToFavorites || "Favorilere ekle";
+      }
+
+      showNotification(
+        `<i class="fas fa-heart"></i> ${track.UserData.IsFavorite
+          ? config.languageLabels.addedToFavorites || "Favorilere eklendi"
+          : config.languageLabels.removedFromFavorites || "Favorilerden kaldırıldı"}`,
+        2000,
+        'kontrol'
+      );
+    } else {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.error("Favori işlemi hatası:", error);
+    showNotification(
+      `<i class="fas fa-exclamation-circle"></i> ${
+        config.languageLabels.favoriteError || "Favori işlemi sırasında hata"
+      }`,
+      3000,
+      'error'
+    );
+  }
+}
+
+export function checkMarqueeNeeded(element) {
+  if (!element || !element.parentElement) return;
+
+  const container = element.parentElement;
+  const textWidth = element.scrollWidth;
+  const containerWidth = container.offsetWidth;
+
+  container.style.setProperty('--container-width', `${containerWidth}px`);
+
+  element.style.removeProperty('animation');
+  element.classList.remove('marquee-active');
+
+  requestAnimationFrame(() => {
+    if (textWidth > containerWidth) {
+      element.classList.add('marquee-active');
+    } else {
+      element.classList.remove('marquee-active');
+      element.style.transform = 'none';
+    }
+  });
 }

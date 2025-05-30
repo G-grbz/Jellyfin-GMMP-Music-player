@@ -1,5 +1,13 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  dateLocale: 'Datumsformat',
+  addToFavorites: "Zu Favoriten hinzufügen",
+  removeFromFavorites: "Aus Favoriten entfernen",
+  addedToFavorites: "Zu Favoriten hinzugefügt",
+  removedFromFavorites: "Aus Favoriten entfernt",
+  favoriteError: "Beim Verarbeiten der Favoriten ist ein Fehler aufgetreten",
+  favorites: "Meine Favoriten",
+  noFavorites: "Keine Lieblingslieder gefunden",
   playerTheme: "Player-Design",
   darkTheme: "Dunkel",
   lightTheme: "Hell",

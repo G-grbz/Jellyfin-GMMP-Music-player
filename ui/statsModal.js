@@ -844,12 +844,14 @@ async function loadRecentItems(items, containerId, sectionTitle, formatter) {
 }
 
 function formatTrackInfo(track, index) {
+    const config = getConfig();
     let displayDate = "Bilinmeyen Tarih";
+
     try {
         if (track.DateCreated) {
             const date = new Date(track.DateCreated);
             if (!isNaN(date)) {
-                displayDate = date.toLocaleString('tr-TR', {
+                displayDate = date.toLocaleString(config.dateLocale, {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
@@ -861,6 +863,7 @@ function formatTrackInfo(track, index) {
         }
     } catch (e) {
         console.warn("Tarih formatlama hatası:", e);
+        displayDate = new Date(track.DateCreated).toISOString().slice(0, 19).replace('T', ' ');
     }
 
     const artists = Array.isArray(track.Artists)

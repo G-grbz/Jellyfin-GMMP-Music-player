@@ -141,6 +141,8 @@ export function setupProgressControls() {
   document.addEventListener('mouseup', handleMouseUp);
   document.addEventListener('touchmove', handleTouchMove, { passive: false });
   document.addEventListener('touchend', handleTouchEnd);
+  progressBar.removeEventListener('wheel', handleWheel);
+  progressBar.addEventListener('wheel', handleWheel, { passive: false });
 
   updateProgress();
 }
@@ -288,5 +290,26 @@ export function cleanupMediaSession() {
     navigator.mediaSession.setActionHandler('seekto', null);
     navigator.mediaSession.setActionHandler('seekforward', null);
     navigator.mediaSession.setActionHandler('seekbackward', null);
+  }
+}
+
+function handleWheel(e) {
+  e.preventDefault();
+  const { audio } = musicPlayerState;
+  if (!audio) return;
+
+  const delta = e.deltaY > 0 ? -1 : 1;
+  const seekAmount = 1;
+
+  audio.currentTime = Math.max(0, Math.min(audio.currentTime + (delta * seekAmount), getEffectiveDuration()));
+
+  updateProgress();
+  updateMediaPositionState();
+
+  const { progressHandle } = musicPlayerState;
+  if (progressHandle) {
+    setTimeout(() => {
+      progressHandle.style.transform = '';
+    }, 200);
   }
 }

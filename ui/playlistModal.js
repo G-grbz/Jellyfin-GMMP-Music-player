@@ -161,12 +161,13 @@ async function showSaveModal() {
   nameInput.type = "text";
   nameInput.placeholder = config.languageLabels.enterPlaylistName;
   nameInput.id = "playlist-name-input";
-  nameInput.value = `GMMP Oynatma Listesi ${new Date().toLocaleString('tr-TR', {
+  nameInput.value = `GMMP Oynatma Listesi ${new Date().toLocaleString(config.dateLocale || 'tr-TR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    second: '2-digit'
   })}`;
   nameInput.setAttribute("aria-labelledby", "save-modal-title");
   nameInputContainer.appendChild(nameInput);

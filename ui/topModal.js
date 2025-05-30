@@ -95,14 +95,15 @@ export function showTopTracksModal() {
   const tabContainer = document.createElement('div');
   tabContainer.className = 'top-tracks-tabs';
 
-  ['top','recent','latest'].forEach(tabKey => {
+  ['top','recent','latest','favorites'].forEach(tabKey => {
     const tab = document.createElement('div');
     tab.className = 'top-tracks-tab' + (tabKey === activeTab ? ' active' : '');
     tab.dataset.tab = tabKey;
     tab.textContent = {
       top: config.languageLabels.topTracks || 'En Çok Dinlenenler',
       recent: config.languageLabels.recentTracks || 'Son Dinlenenler',
-      latest: config.languageLabels.latestTracks || 'Son Eklenenler'
+      latest: config.languageLabels.latestTracks || 'Son Eklenenler',
+      favorites: config.languageLabels.favorites || 'Favorilerim'
     }[tabKey];
     tab.onclick = () => switchTab(tabKey);
     tabContainer.appendChild(tab);
@@ -232,11 +233,17 @@ async function showSaveToPlaylistModal() {
   const nameInput = document.createElement("input");
   nameInput.type = "text";
   nameInput.placeholder = config.languageLabels.enterPlaylistName;
-  nameInput.value = `${activeTab === 'top' ? config.languageLabels.topTracks : activeTab === 'recent' ? config.languageLabels.recentlyPlayed : config.languageLabels.latestTracks} - ${new Date().toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })}`;
+  nameInput.value = `${activeTab === 'top' ? config.languageLabels.topTracks :
+                  activeTab === 'recent' ? config.languageLabels.recentlyPlayed :
+                  activeTab === 'latest' ? config.languageLabels.latestTracks :
+                  config.languageLabels.favorites} - ${new Date().toLocaleString(config.dateLocale || 'tr-TR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit'
+})}`;
   nameInputContainer.appendChild(nameInput);
 
   const publicLabel = document.createElement("label");
@@ -456,6 +463,9 @@ async function loadTracks() {
       case 'latest':
         apiUrl = `/Users/${userId}/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Audio&Recursive=true&Limit=${trackLimit}`;
         break;
+      case 'favorites':
+        apiUrl = `/Users/${userId}/Items?Filters=IsFavorite&IncludeItemTypes=Audio&Recursive=true&SortBy=SortName&SortOrder=Ascending&Limit=${trackLimit}`;
+        break;
       default:
         apiUrl = `/Users/${userId}/Items?SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Recursive=true&Limit=20`;
     }
@@ -464,7 +474,7 @@ async function loadTracks() {
       headers: { "X-Emby-Token": token }
     });
 
-    if (!response.ok) throw new Error('Tracks could not be loaded');
+    if (!response.ok) throw new Error('Şarkılar yüklenemedi');
 
     const data = await response.json();
     allTracks = data.Items || [];
@@ -536,6 +546,13 @@ async function loadTracks() {
         infoElement.appendChild(addedDateElement);
       }
 
+      if (track.UserData?.IsFavorite) {
+        const favoriteIcon = document.createElement('div');
+        favoriteIcon.className = 'top-track-favorite';
+        favoriteIcon.innerHTML = '<i class="fas fa-heart"></i>';
+        trackElement.appendChild(favoriteIcon);
+      }
+
       infoElement.appendChild(nameElement);
       infoElement.appendChild(artistElement);
       trackElement.appendChild(checkbox);
@@ -569,13 +586,17 @@ function formatDate(date) {
   } else if (diffInDays < 7) {
     return `${diffInDays} ${config.languageLabels.daysAgo || 'gün önce'}`;
   } else {
-    return date.toLocaleDateString(config.language || 'tr-TR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
+    return date.toLocaleDateString(config.dateLocale || 'tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
     });
   }
 }
+
 
 async function loadTrackImage(track, element) {
   try {

@@ -1,5 +1,13 @@
 export const languageLabels = {
   defaultLanguage: "Язык по умолчанию",
+  dateLocale: 'Формат даты',
+  addToFavorites: "Добавить в избранное",
+  removeFromFavorites: "Удалить из избранного",
+  addedToFavorites: "Добавлено в избранное",
+  removedFromFavorites: "Удалено из избранного",
+  favoriteError: "Ошибка при обработке избранного",
+  favorites: "Мои избранные",
+  noFavorites: "Избранные песни не найдены",
   playerTheme: "Тема плеера",
   darkTheme: "Тёмная",
   lightTheme: "Светлая",

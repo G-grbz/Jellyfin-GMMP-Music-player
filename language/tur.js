@@ -1,5 +1,13 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  dateLocale: 'Tarih Formatı',
+  addToFavorites: "Favorilere Ekle",
+  removeFromFavorites: "Favorilerden Kaldır",
+  addedToFavorites: "Favorilere eklendi",
+  removedFromFavorites: "Favorilerden kaldırıldı",
+  favoriteError: "Favori işlemi sırasında hata oluştu",
+  favorites: "Favorilerim",
+  noFavorites: "Favori şarkı bulunamadı",
   playerTheme: "Oynatıcı Teması",
   darkTheme: "Karanlık",
   lightTheme: "Aydınlık",
