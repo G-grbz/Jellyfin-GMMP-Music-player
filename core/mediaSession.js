@@ -155,7 +155,7 @@ async function getTrackArtwork(track) {
   if (track?.AlbumPrimaryImageTag || track?.PrimaryImageTag) {
     const imageId = track.AlbumId || track.Id;
     return [{
-      src: `${window.location.origin}/Items/${imageId}/Images/Primary?quality=90&tag=${track.AlbumPrimaryImageTag || track.PrimaryImageTag}`,
+      src: `/Items/${imageId}/Images/Primary?quality=90&tag=${track.AlbumPrimaryImageTag || track.PrimaryImageTag}`,
       sizes: '512x512',
       type: 'image/jpeg'
     }];

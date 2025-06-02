@@ -423,7 +423,6 @@ async function getArtworkFromSources(track) {
     const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
     if (imageTag) {
       const imageId = track.AlbumId || track.Id;
-      const serverUrl = window.ApiClient?.serverAddress() || window.location.origin;
       const url = `/Items/${imageId}/Images/Primary?fillHeight=300&fillWidth=300&quality=90&tag=${imageTag}`;
       const valid = await checkImageExists(url);
       return valid ? url : DEFAULT_ARTWORK;

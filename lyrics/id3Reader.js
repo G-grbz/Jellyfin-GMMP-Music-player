@@ -57,7 +57,7 @@ async function processSingleTrack(trackId, resolve) {
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
     const response = await fetch(
-      `${window.location.origin}/Audio/${trackId}/stream.mp3?Static=true`,
+      `/Audio/${trackId}/stream.mp3?Static=true`,
       {
         method: "GET",
         headers: {
@@ -140,7 +140,7 @@ async function readTagsWithFallback(blob, trackId, fullFetch) {
           try {
             const token = getAuthToken();
             const fullResp = await fetch(
-              `${window.location.origin}/Audio/${trackId}/stream.mp3?Static=true`,
+              `/Audio/${trackId}/stream.mp3?Static=true`,
               { headers: { "X-Emby-Token": token } }
             );
             if (fullResp.ok) {
@@ -169,7 +169,7 @@ export async function loadJSMediaTags() {
   if (window.jsmediatags) return;
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `${window.location.origin}/web/GMMP/lyrics/jsmediatags/jsmediatags.min.js`;
+    script.src = `/web/GMMP/lyrics/jsmediatags/jsmediatags.min.js`;
     script.onload = resolve;
     script.onerror = () => reject(new Error("jsmediatags yüklenemedi"));
     document.head.appendChild(script);
@@ -190,7 +190,7 @@ export async function parseID3Tags(buffer) {
     if (!window.jsmediatags) {
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = `${window.location.origin}/web/GMMP/lyrics/jsmediatags/jsmediatags.min.js`;
+        script.src = `/web/GMMP/lyrics/jsmediatags/jsmediatags.min.js`;
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);

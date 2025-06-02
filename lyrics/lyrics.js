@@ -34,7 +34,7 @@ export async function fetchLyrics() {
 
   for (const endpoint of endpoints) {
     try {
-      const res = await fetch(`${window.location.origin}${endpoint}`, {
+      const res = await fetch(`${endpoint}`, {
         headers: { "X-Emby-Token": token }
       });
 
@@ -71,7 +71,7 @@ export async function getEmbeddedLyrics(trackId) {
     }
 
     const token = getAuthToken();
-    const response = await fetch(`${window.location.origin}/Audio/${trackId}/stream.mp3?Static=true`, {
+    const response = await fetch(`/Audio/${trackId}/stream.mp3?Static=true`, {
       headers: { "X-Emby-Token": token }
     });
 

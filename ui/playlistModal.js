@@ -600,7 +600,7 @@ async function loadImageForItem(item, index) {
   const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
   if (imageTag) {
     const imageId = track.AlbumId || id;
-    const serverImageUrl = `${window.location.origin}/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
+    const serverImageUrl = `/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
     img.style.backgroundImage = `url('${serverImageUrl}')`;
     musicPlayerState.id3ImageCache[id] = serverImageUrl;
   }

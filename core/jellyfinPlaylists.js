@@ -213,7 +213,7 @@ export async function showJellyfinPlaylistsModal() {
     if (pl.imageTag) {
       const img = document.createElement('img');
       img.className = 'jellyfin-playlist-item__image';
-      img.src = `${window.ApiClient.serverAddress()}/Items/${pl.id}/Images/Primary?maxHeight=50`;
+      img.src = `/Items/${pl.id}/Images/Primary?maxHeight=50`;
       item.appendChild(img);
     }
 
