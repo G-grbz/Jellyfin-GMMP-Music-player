@@ -1,5 +1,10 @@
 export const languageLabels = {
   defaultLanguage: "Default Language",
+  lyricsDelay: "Delay",
+  notificationsEnabled: 'Show Notifications',
+  noTracksAvailable: "A new playlist cannot be created because all songs have already been added to the current list",
+  maxExcludeIdsForUri: "Max IDs to Exclude",
+  maxExcludeIdsForTitle: "This value defines the maximum length of the 'Excluded Past Playlist Count' list that can be sent in a single API request to refresh the playlist. Large values may exceed server request size limits and cause errors. A value between 50–200 is generally recommended for error-free operation.",
   dateLocale: 'Date Format',
   addToFavorites: "Add to Favorites",
   removeFromFavorites: "Remove from Favorites",

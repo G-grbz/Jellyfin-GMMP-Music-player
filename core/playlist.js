@@ -27,24 +27,74 @@ export async function refreshPlaylist() {
     const headers = { "X-Emby-Token": token };
     const baseQuery = "IncludeItemTypes=Audio&Recursive=true&SortBy=Random";
 
-    const excludeIdsParam = excludedTrackHistory.size > 0
-      ? `&ExcludeItemIds=${Array.from(excludedTrackHistory).join(',')}`
-      : '';
+    let totalItems = 0;
+    try {
+      const countResponse = await fetch(
+        `/Items?${baseQuery}${genres.length > 0 ? `&Genres=${genres.map(encodeURIComponent).join(',')}` : ''}&Limit=1`,
+        { headers }
+      );
+      if (countResponse.ok) {
+        const countData = await countResponse.json();
+        totalItems = countData.TotalRecordCount || 0;
+      }
+    } catch (e) {
+      console.error("Toplam parça sayısı alınırken hata:", e);
+    }
+
+    const effectiveLimit = totalItems > 0
+      ? Math.min(config.muziklimit, totalItems - excludedTrackHistory.size)
+      : config.muziklimit;
+
+    if (effectiveLimit <= 0) {
+      showNotification(
+        `<i class="fas fa-info-circle"></i> ${config.languageLabels.noTracksAvailable}`,
+        2000,
+        'info'
+      );
+      return;
+    }
+
+    const chunkArray = (array, chunkSize) => {
+      const chunks = [];
+      for (let i = 0; i < array.length; i += chunkSize) {
+        chunks.push(array.slice(i, i + chunkSize));
+      }
+      return chunks;
+    };
+
+    const excludedIds = Array.from(excludedTrackHistory);
+    const excludedIdChunks = chunkArray(excludedIds, config.maxExcludeIdsForUri || 100);
 
     if (genres.length > 0) {
-      const perGenreLimit = Math.floor(config.muziklimit / genres.length) || 1;
-      const initialFetches = genres.map(genre =>
-        fetch(
-          `/Items?${baseQuery}&Limit=${perGenreLimit}&Genres=${encodeURIComponent(genre)}${excludeIdsParam}`,
-          { headers }
-        )
-        .then(r => {
-          if (!r.ok) throw new Error(config.languageLabels.unauthorizedRequest);
-          return r.json();
-        })
-        .then(d => d.Items || [])
-        .catch(() => [])
-      );
+      const perGenreLimit = Math.floor(effectiveLimit / genres.length) || 1;
+      const initialFetches = genres.flatMap(genre => {
+        if (excludedIdChunks.length === 0) {
+          return fetch(
+            `/Items?${baseQuery}&Limit=${perGenreLimit}&Genres=${encodeURIComponent(genre)}`,
+            { headers }
+          )
+          .then(r => {
+            if (!r.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+            return r.json();
+          })
+          .then(d => d.Items || [])
+          .catch(() => []);
+        }
+
+        return excludedIdChunks.map(chunk => {
+          const excludeIdsParam = `&ExcludeItemIds=${chunk.join(',')}`;
+          return fetch(
+            `/Items?${baseQuery}&Limit=${Math.ceil(perGenreLimit / excludedIdChunks.length)}&Genres=${encodeURIComponent(genre)}${excludeIdsParam}`,
+            { headers }
+          )
+          .then(r => {
+            if (!r.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+            return r.json();
+          })
+          .then(d => d.Items || [])
+          .catch(() => []);
+        });
+      });
 
       const initialResults = await Promise.all(initialFetches);
       items = initialResults.flat();
@@ -56,52 +106,77 @@ export async function refreshPlaylist() {
         return true;
       });
 
-      let remainder = config.muziklimit - items.length;
+      let remainder = effectiveLimit - items.length;
       while (remainder > 0) {
         let added = false;
         for (const genre of genres) {
           if (remainder <= 0) break;
+
           const currentExcludeIds = Array.from(new Set([
             ...Array.from(seenIds),
             ...Array.from(excludedTrackHistory)
-          ])).join(',');
+          ]));
 
-          const url =
-            `/Items?${baseQuery}` +
-            `&Limit=1&Genres=${encodeURIComponent(genre)}` +
-            (currentExcludeIds ? `&ExcludeItemIds=${encodeURIComponent(currentExcludeIds)}` : '');
+          const currentExcludeChunks = chunkArray(currentExcludeIds, config.maxExcludeIdsForUri || 100);
 
-          try {
-            const resp = await fetch(url, { headers });
-            if (!resp.ok) continue;
-            const { Items = [] } = await resp.json();
-            const [track] = Items;
-            if (track && !seenIds.has(track.Id) && !excludedTrackHistory.has(track.Id)) {
-              items.push(track);
-              seenIds.add(track.Id);
-              remainder--;
-              added = true;
-            }
-          } catch (_) { /* atla */ }
+          for (const chunk of currentExcludeChunks) {
+            if (remainder <= 0) break;
+
+            const excludeParam = chunk.length > 0 ? `&ExcludeItemIds=${chunk.join(',')}` : '';
+            const url = `/Items?${baseQuery}&Limit=1&Genres=${encodeURIComponent(genre)}${excludeParam}`;
+
+            try {
+              const resp = await fetch(url, { headers });
+              if (!resp.ok) continue;
+              const { Items = [] } = await resp.json();
+              const [track] = Items;
+              if (track && !seenIds.has(track.Id)) {
+                items.push(track);
+                seenIds.add(track.Id);
+                remainder--;
+                added = true;
+              }
+            } catch (_) { /* hata varsa yoksay */ }
+          }
         }
         if (!added) break;
       }
 
-      items = items.slice(0, config.muziklimit);
+      items = items.slice(0, effectiveLimit);
 
       showNotification(
-        `<i class="fas fa-masks-theater"></i> ${genres.length} ${config.languageLabels.genresApplied} ${items.length} ${config.languageLabels.tracks}`,
+        `<i class="fas fa-masks-theater"></i> ${genres.length} ${config.languageLabels.genresApplied} ${items.length}/${effectiveLimit} ${config.languageLabels.tracks}`,
         2000,
         'tur'
       );
     } else {
-      const resp = await fetch(
-        `/Items?${baseQuery}&Limit=${config.muziklimit}${excludeIdsParam}`,
-        { headers }
-      );
-      if (!resp.ok) throw new Error(config.languageLabels.unauthorizedRequest);
-      const data = await resp.json();
-      items = data.Items || [];
+      if (excludedIdChunks.length === 0) {
+        const resp = await fetch(
+          `/Items?${baseQuery}&Limit=${effectiveLimit}`,
+          { headers }
+        );
+        if (!resp.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+        const data = await resp.json();
+        items = data.Items || [];
+      } else {
+        const limitPerChunk = Math.ceil(effectiveLimit / excludedIdChunks.length);
+        const chunkRequests = excludedIdChunks.map(chunk => {
+          const excludeIdsParam = `&ExcludeItemIds=${chunk.join(',')}`;
+          return fetch(
+            `/Items?${baseQuery}&Limit=${limitPerChunk}${excludeIdsParam}`,
+            { headers }
+          )
+          .then(r => {
+            if (!r.ok) throw new Error(config.languageLabels.unauthorizedRequest);
+            return r.json();
+          })
+          .then(d => d.Items || [])
+          .catch(() => []);
+        });
+
+        const chunkResults = await Promise.all(chunkRequests);
+        items = chunkResults.flat().slice(0, effectiveLimit);
+      }
     }
 
     const newTrackIds = items.map(track => track.Id);

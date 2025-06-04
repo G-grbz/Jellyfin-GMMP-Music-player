@@ -196,7 +196,14 @@ setTimeout(() => {
   const prevBtn = createButton({ iconClass: "fas fa-step-backward", title: config.languageLabels.previousTrack, onClick: playPrevious });
   const playPauseBtn = createButton({ className: "main", iconClass: "fas fa-play", title: config.languageLabels.playPause, onClick: togglePlayPause, id: "play-pause-btn" });
   const nextBtn = createButton({ iconClass: "fas fa-step-forward", title: config.languageLabels.nextTrack, onClick: playNext });
-  const lyricsBtn = createButton({ iconClass: "fas fa-align-left", title: config.languageLabels.lyrics, onClick: toggleLyrics });
+  const lyricsBtn = createButton({
+  iconClass: "fas fa-align-left",
+  title: config.languageLabels.lyrics,
+  onClick: () => {
+    toggleLyrics();
+    musicPlayerState.lyricsDelay = parseFloat(localStorage.getItem("lyricsDelay")) || 0;
+  }
+});
   const volumeBtn = createButton({ iconClass: "fas fa-volume-up", title: config.languageLabels.volume, onClick: toggleMute });
 
   const volumeSlider = Object.assign(document.createElement("input"), {
@@ -306,7 +313,6 @@ setTimeout(() => {
 
 export async function updateNextTracks() {
   const {
-    nextTracksList,
     playlist,
     currentIndex,
     userSettings,
@@ -315,89 +321,234 @@ export async function updateNextTracks() {
     effectivePlaylist
   } = musicPlayerState;
 
-  if (!nextTracksList || !playlist) return;
+  if (!nextTracksContainer || !playlist) return;
+  nextTracksContainer.innerHTML = '';
 
-  nextTracksList.innerHTML = '';
-  const nextTracksName = nextTracksContainer.querySelector('.next-tracks-name');
-
-  if (userSettings.shuffle) {
-    nextTracksName.textContent = config.languageLabels.rastgele || "Rastgele";
-  } else {
-    nextTracksName.textContent = config.languageLabels.sirada || "Sıradakiler";
+  if (!musicPlayerState.playedHistory ||
+      musicPlayerState.lastShuffleState !== userSettings.shuffle ||
+      musicPlayerState.lastCurrentIndex !== currentIndex) {
+    musicPlayerState.playedHistory = [currentIndex];
+    musicPlayerState.lastShuffleState = userSettings.shuffle;
+    musicPlayerState.lastCurrentIndex = currentIndex;
   }
 
-  nextTracksName?.classList.add('hidden');
+  const nextTracksList = document.createElement('div');
+  nextTracksList.className = 'next-tracks-list';
+  musicPlayerState.nextTracksList = nextTracksList;
 
-  const maxNextTracks = 3;
+  const nextTracksName = document.createElement('div');
+  nextTracksName.className = 'next-tracks-name hidden';
+  nextTracksName.textContent = userSettings.shuffle
+    ? config.languageLabels.rastgele || "Rastgele"
+    : config.languageLabels.sirada || "Sıradakiler";
+
+  const maxNextTracks = Math.min(
+    config.nextTrack,
+    (config.muziklimit ? config.muziklimit - 1 : config.nextTrack)
+  );
+
   const nextIndices = [];
+  const playlistLength = playlist.length;
 
   if (userSettings.shuffle) {
-    const availableIndices = [...Array(playlist.length).keys()]
-      .filter(i => i !== currentIndex);
+    const playedSet = new Set(musicPlayerState.playedHistory);
 
-    while (nextIndices.length < Math.min(maxNextTracks, availableIndices.length)) {
-      const randomIndex = Math.floor(Math.random() * availableIndices.length);
-      const candidate = availableIndices[randomIndex];
+    if (!playedSet.has(currentIndex)) {
+      playedSet.add(currentIndex);
+    }
 
-      if (!nextIndices.includes(candidate)) {
-        nextIndices.push(candidate);
+    if (playedSet.size >= playlistLength) {
+      playedSet.clear();
+      playedSet.add(currentIndex);
+    }
+
+    const selectedSet = new Set();
+    while (selectedSet.size < maxNextTracks && selectedSet.size < playlistLength - 1) {
+      const randIdx = Math.floor(Math.random() * playlistLength);
+      if (randIdx !== currentIndex && !playedSet.has(randIdx)) {
+        selectedSet.add(randIdx);
+      }
+    }
+
+    nextIndices.push(...selectedSet);
+
+    if (nextIndices.length < maxNextTracks) {
+      for (let i = 0; i < playlistLength && nextIndices.length < maxNextTracks; i++) {
+        if (i !== currentIndex && !nextIndices.includes(i)) {
+          nextIndices.push(i);
+        }
+      }
+    }
+
+    musicPlayerState.playedHistory.push(...nextIndices);
+    musicPlayerState.playedHistory = Array.from(new Set(musicPlayerState.playedHistory));
+    if (musicPlayerState.playedHistory.length > playlistLength * 2) {
+      musicPlayerState.playedHistory = musicPlayerState.playedHistory.slice(-playlistLength);
+    }
+
+  } else {
+    let idx = currentIndex;
+    let attempts = 0;
+    const maxAttempts = playlistLength * 2;
+
+    while (nextIndices.length < maxNextTracks && attempts < maxAttempts) {
+      idx = (idx + 1) % playlistLength;
+      if (!musicPlayerState.playedHistory.includes(idx)) {
+        nextIndices.push(idx);
+        musicPlayerState.playedHistory.push(idx);
+      }
+      attempts++;
+
+      if (attempts >= playlistLength && nextIndices.length === 0) {
+        musicPlayerState.playedHistory = [currentIndex];
+        idx = currentIndex;
+        attempts = 0;
       }
     }
   }
-  else {
-    for (let offset = 1; offset <= maxNextTracks; offset++) {
-      if (playlist.length === 0) break;
-      const idx = (currentIndex + offset) % playlist.length;
-      nextIndices.push(idx);
-    }
-  }
 
-  let addedCount = 0;
-  for (const nextIndex of nextIndices) {
+  musicPlayerState.lastCurrentIndex = currentIndex;
+
+  const trackElements = nextIndices.map((nextIndex) => {
     const track = playlist[nextIndex];
-    if (!track) continue;
+    if (!track) return null;
 
-    try {
-      const trackElement = document.createElement('div');
-      trackElement.className = 'next-track-item hidden';
-      trackElement.dataset.trackId = track.Id;
-      trackElement.dataset.trackIndex = nextIndex;
-      trackElement.title = track.Name || config.languageLabels.unknownTrack;
+    const trackElement = document.createElement('div');
+    trackElement.className = 'next-track-item hidden';
+    trackElement.dataset.trackId = track.Id;
+    trackElement.dataset.trackIndex = nextIndex;
+    trackElement.dataset.loaded = "false";
+    trackElement.title = track.Name || config.languageLabels.unknownTrack;
 
-      const coverElement = document.createElement('div');
-      coverElement.className = 'next-track-cover';
-      coverElement.style.backgroundImage = DEFAULT_ARTWORK;
+    const coverElement = document.createElement('div');
+    coverElement.className = 'next-track-cover';
+    coverElement.style.backgroundImage = DEFAULT_ARTWORK;
+    coverElement.onclick = () => playTrack(nextIndex);
 
-      const imageUri = await getTrackImage(track, id3ImageCache);
-      if (imageUri) {
-        coverElement.style.backgroundImage = `url('${imageUri}')`;
-      }
-      coverElement.onclick = () => playTrack(nextIndex);
+    const titleElement = document.createElement('div');
+    titleElement.className = 'next-track-title';
+    titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
+    titleElement.onclick = () => playTrack(nextIndex);
 
-      const titleElement = document.createElement('div');
-      titleElement.className = 'next-track-title';
-      titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
-      titleElement.onclick = () => playTrack(nextIndex);
+    trackElement.append(coverElement, titleElement);
+    nextTracksList.appendChild(trackElement);
 
-      trackElement.append(coverElement, titleElement);
-      nextTracksList.appendChild(trackElement);
+    return { nextIndex, track, trackElement, coverElement };
+  }).filter(Boolean);
 
-      setTimeout(() => {
-        trackElement.classList.remove('hidden');
-        trackElement.classList.add('visible');
-      }, (addedCount + 1) * 200);
+  const MAX_CONCURRENT_READS = config.id3limit;
+  let loadedCount = 0;
 
-      addedCount++;
-    } catch (error) {
-      console.error(`Track #${nextIndex} yüklenirken hata:`, error);
+  const loadNextBatch = () => {
+    const batch = trackElements.slice(loadedCount, loadedCount + MAX_CONCURRENT_READS);
+    batch.forEach(({ trackElement }) => {
+      trackElement.classList.remove('hidden');
+      trackElement.classList.add('visible');
+      observer.observe(trackElement);
+    });
+    loadedCount += batch.length;
+
+    if (loadedCount >= trackElements.length) {
+      sentinelObserver.unobserve(sentinel);
     }
+  };
+
+  const observer = new IntersectionObserver(async (entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+
+      const el = entry.target;
+      if (el.dataset.loaded === "true") continue;
+
+      const nextIndex = parseInt(el.dataset.trackIndex, 10);
+      const { track, coverElement } = trackElements.find(te => te.nextIndex === nextIndex) || {};
+      if (!track || !coverElement) continue;
+
+      try {
+        const imageUri = await getTrackImage(track, id3ImageCache);
+        if (imageUri) {
+          coverElement.style.backgroundImage = `url('${imageUri}')`;
+        }
+        el.dataset.loaded = "true";
+        observer.unobserve(el);
+      } catch (err) {
+        console.error(`Track #${nextIndex} resmi yüklenirken hata:`, err);
+      }
+    }
+  }, {
+    root: nextTracksList,
+    threshold: 0.1
+  });
+
+  const sentinel = document.createElement('div');
+  sentinel.className = 'next-track-sentinel';
+  nextTracksList.appendChild(sentinel);
+
+  const sentinelObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      loadNextBatch();
+    }
+  }, {
+    root: nextTracksList,
+    threshold: 1.0
+  });
+
+  sentinelObserver.observe(sentinel);
+  loadNextBatch();
+
+  trackElements.forEach(({ trackElement }, idx) => {
+    setTimeout(() => {
+      trackElement.classList.remove('hidden');
+      trackElement.classList.add('visible');
+      observer.observe(trackElement);
+    }, (idx + 1) * 50);
+  });
+
+  const scrollLeftBtn = document.createElement('div');
+  scrollLeftBtn.className = 'track-scroll-btn track-scroll-left';
+  const leftIcon = document.createElement('i');
+  leftIcon.className = 'fas fa-chevron-left';
+  scrollLeftBtn.appendChild(leftIcon);
+
+  const scrollRightBtn = document.createElement('div');
+  scrollRightBtn.className = 'track-scroll-btn track-scroll-right';
+  const rightIcon = document.createElement('i');
+  rightIcon.className = 'fas fa-chevron-right';
+  scrollRightBtn.appendChild(rightIcon);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'next-tracks-wrapper';
+  wrapper.appendChild(nextTracksList);
+
+  let scrollIndex = 0;
+  const visibleCount = 4;
+  const itemWidth = 75;
+
+  const updateScroll = () => {
+    nextTracksList.style.transform = `translateX(-${scrollIndex * itemWidth}px)`;
+  };
+
+  scrollLeftBtn.onclick = () => {
+    scrollIndex = Math.max(0, scrollIndex - visibleCount);
+    updateScroll();
+  };
+  scrollRightBtn.onclick = () => {
+    scrollIndex = Math.min(trackElements.length - visibleCount, scrollIndex + visibleCount);
+    updateScroll();
+  };
+
+  const addedCount = trackElements.length;
+  if (addedCount > visibleCount) {
+    nextTracksContainer.append(nextTracksName, scrollLeftBtn, wrapper, scrollRightBtn);
+  } else {
+    nextTracksContainer.append(wrapper, nextTracksName);
   }
 
   if (addedCount > 0) {
     setTimeout(() => {
-      nextTracksName?.classList.remove('hidden');
-      nextTracksName?.classList.add('visible');
-    }, (addedCount + 1) * 200);
+      nextTracksName.classList.remove('hidden');
+      nextTracksName.classList.add('visible');
+    }, (addedCount + 1) * 50);
   }
 
   musicPlayerState.id3ImageCache = id3ImageCache;

@@ -3,6 +3,7 @@ import { getLanguageLabels, getDefaultLanguage } from '../language/index.js';
 const defaultConfig = {
   showLanguageInfo: true,
   muziklimit: 50,
+  nextTrack: 50,
   albumlimit: 20,
   sarkilimit: 200,
   gruplimit: 200,
@@ -11,6 +12,8 @@ const defaultConfig = {
   playerTheme: 'dark',
   playerStyle: 'player',
   dateLocale: 'tr-TR',
+  notificationsEnabled: 'false',
+  maxExcludeIdsForUri: 100,
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -23,6 +26,7 @@ export function getConfig() {
     showLanguageInfo: localStorage.getItem('showLanguageInfo') !== 'false',
     defaultLanguage: localStorage.getItem('defaultLanguage') || defaultConfig.defaultLanguage,
     muziklimit: parseInt(localStorage.getItem('muziklimit'), 10) || defaultConfig.muziklimit,
+    nextTrack: parseInt(localStorage.getItem('nextTrack'), 10) || defaultConfig.nextTrack,
     albumlimit: parseInt(localStorage.getItem('albumlimit'), 10) || defaultConfig.albumlimit,
     sarkilimit: parseInt(localStorage.getItem('sarkilimit'), 10) || defaultConfig.sarkilimit,
     gruplimit: parseInt(localStorage.getItem('gruplimit'), 10) || defaultConfig.gruplimit,
@@ -31,6 +35,8 @@ export function getConfig() {
     playerTheme: localStorage.getItem('playerTheme') || defaultConfig.playerTheme,
     playerStyle: localStorage.getItem('playerStyle') || defaultConfig.playerStyle,
     dateLocale: localStorage.getItem('dateLocale') || 'tr-TR',
+    maxExcludeIdsForUri: parseInt(localStorage.getItem('maxExcludeIdsForUri'), 10) || defaultConfig.maxExcludeIdsForUri,
+    notificationsEnabled: localStorage.getItem('notificationsEnabled') !== 'false',
   };
 }
 
@@ -45,6 +51,10 @@ export function updateConfig(newConfig) {
 
   if (newConfig.albumlimit !== undefined) {
     localStorage.setItem('albumlimit', newConfig.albumlimit);
+  }
+
+  if (newConfig.nextTrack !== undefined) {
+    localStorage.setItem('nextTrack', newConfig.nextTrack);
   }
 
   if (newConfig.sarkilimit !== undefined) {
@@ -77,6 +87,14 @@ export function updateConfig(newConfig) {
 
   if (newConfig.dateLocale !== undefined) {
     localStorage.setItem('dateLocale', newConfig.dateLocale);
+  }
+
+   if (newConfig.maxExcludeIdsForUri !== undefined) {
+    localStorage.setItem('maxExcludeIdsForUri', newConfig.maxExcludeIdsForUri);
+  }
+
+  if (newConfig.notificationsEnabled !== undefined) {
+    localStorage.setItem('notificationsEnabled', newConfig.notificationsEnabled);
   }
 
   const configUpdatedEvent = new CustomEvent('configUpdated', {

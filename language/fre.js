@@ -1,5 +1,10 @@
 export const languageLabels = {
   defaultLanguage: "Langue par défaut",
+  lyricsDelay: "Retard",
+  notificationsEnabled: 'Afficher les notifications',
+  noTracksAvailable: "Une nouvelle liste de lecture ne peut pas être créée car toutes les chansons ont déjà été ajoutées à la liste actuelle",
+  maxExcludeIdsForUri: "ID à exclure (max)",
+  maxExcludeIdsForTitle: "Cette valeur définit la longueur maximale de la liste 'Nombre de listes précédentes à exclure' pouvant être envoyée en une seule requête API pour actualiser la liste. Des valeurs élevées peuvent dépasser la taille limite des requêtes serveur et entraîner des erreurs. Une valeur comprise entre 50 et 200 est généralement recommandée pour un fonctionnement sans erreur.",
   dateLocale: 'Format de date',
   addToFavorites: "Ajouter aux favoris",
   removeFromFavorites: "Retirer des favoris",

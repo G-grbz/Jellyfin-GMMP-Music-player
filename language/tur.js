@@ -1,5 +1,10 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  lyricsDelay: "Gecikme",
+  notificationsEnabled: 'Bildirimleri Göster',
+  noTracksAvailable: "Tüm şarkılar mevcut listeye eklendiğinden yeni liste oluşturulamaz",
+  maxExcludeIdsForUri: "Hariç tutulacak maks. ID",
+  maxExcludeIdsForTitle: "Bu değer, Liste yenilemek için API isteğinde aynı anda gönderilebilecek 'Hariç Tutulacak Geçmiş Liste Sayısı' listesinin maksimum uzunluğunu belirler. Büyük değerler sunucu isteklerinin boyutunu aşarak hatalara neden olabilir. İsteklerin hatasız çalışması için genellikle 50-200 arası bir değer önerilir.",
   dateLocale: 'Tarih Formatı',
   addToFavorites: "Favorilere Ekle",
   removeFromFavorites: "Favorilerden Kaldır",

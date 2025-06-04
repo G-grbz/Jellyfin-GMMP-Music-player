@@ -234,18 +234,20 @@ export function createSettingsModal() {
                 formData.get('allowedWriters').split(',').map(w => w.trim()) : [],
 
             muziklimit: parseInt(formData.get('muziklimit'), 10),
+            nextTrack: parseInt(formData.get('nextTrack'), 10) || 30,
             sarkilimit: parseInt(formData.get('sarkilimit'), 10),
             id3limit: parseInt(formData.get('id3limit'), 10),
             albumlimit: parseInt(formData.get('albumlimit'), 10),
             gruplimit: parseInt(formData.get('gruplimit'), 10),
             historylimit: parseInt(formData.get('historylimit'), 10),
+            maxExcludeIdsForUri: parseInt(formData.get('maxExcludeIdsForUri'), 10),
+            notificationsEnabled: formData.get('notificationsEnabled') === 'on',
 
             useListFile: formData.get('useListFile') === 'on',
             useManualList: formData.get('useManualList') === 'on',
             manualListIds: formData.get('manualListIds'),
             customQueryString: formData.get('customQueryString'),
             sortingKeywords: formData.get('sortingKeywords'),
-
             showLanguageInfo: formData.get('showLanguageInfo') === 'on',
 
             showLogoOrTitle: formData.get('showLogoOrTitle') === 'on',
@@ -668,6 +670,22 @@ function createMusicPanel(config, labels) {
     languageDiv.append(languageLabel, languageSelect);
     section.appendChild(languageDiv);
 
+    const notificationToggleDiv = document.createElement('div');
+    notificationToggleDiv.className = 'setting-item';
+
+    const notificationToggleInput = document.createElement('input');
+    notificationToggleInput.type = 'checkbox';
+    notificationToggleInput.checked = config.notificationsEnabled !== false;
+    notificationToggleInput.name = 'notificationsEnabled';
+    notificationToggleInput.id = 'notificationsEnabled';
+
+    const notificationToggleLabel = document.createElement('label');
+    notificationToggleLabel.textContent = labels.notificationsEnabled || 'Bildirimleri Göster:';
+    notificationToggleLabel.htmlFor = 'notificationsEnabled';
+
+    notificationToggleDiv.append(notificationToggleInput, notificationToggleLabel);
+    section.appendChild(notificationToggleDiv);
+
     const styleDiv = document.createElement('div');
     styleDiv.className = 'setting-item';
     const styleLabel = document.createElement('label');
@@ -770,9 +788,20 @@ function createMusicPanel(config, labels) {
     musicLimitInput.value = config.muziklimit || 30;
     musicLimitInput.name = 'muziklimit';
     musicLimitInput.min = 1;
-    musicLimitInput.max = 9999;
     musicLimitDiv.append(musicLimitLabel, musicLimitInput);
     section.appendChild( musicLimitDiv);
+
+    const nextTrackDiv = document.createElement('div');
+    nextTrackDiv.className = 'setting-item';
+    const nextTrackLabel = document.createElement('label');
+    nextTrackLabel.textContent = labels.nextTrack || 'Sıradaki Şarkılar Limiti';
+    const nextTrackInput = document.createElement('input');
+    nextTrackInput.type = 'number';
+    nextTrackInput.value = config.nextTrack || 30;
+    nextTrackInput.name = 'nextTrack';
+    nextTrackInput.min = 1;
+    nextTrackDiv.append(nextTrackLabel, nextTrackInput);
+    section.appendChild(nextTrackDiv);
 
     const songLimitDiv = document.createElement('div');
     songLimitDiv.className = 'setting-item';
@@ -783,9 +812,20 @@ function createMusicPanel(config, labels) {
     songLimitInput.value = config.sarkilimit || 200;
     songLimitInput.name = 'sarkilimit';
     songLimitInput.min = 1;
-    songLimitInput.max = 9999;
     songLimitDiv.append(songLimitLabel, songLimitInput);
     section.appendChild(songLimitDiv);
+
+    const albumLimitDiv = document.createElement('div');
+    albumLimitDiv.className = 'setting-item';
+    const albumLimitLabel = document.createElement('label');
+    albumLimitLabel.textContent = labels.albumlimit || 'Sayfa başına albüm sayısı:';
+    const albumLimitInput = document.createElement('input');
+    albumLimitInput.type = 'number';
+    albumLimitInput.value = config.albumlimit || 20;
+    albumLimitInput.name = 'albumlimit';
+    albumLimitInput.min = 1;
+    albumLimitDiv.append(albumLimitLabel, albumLimitInput);
+    section.appendChild(albumLimitDiv);
 
     const id3LimitDiv = document.createElement('div');
     id3LimitDiv.className = 'setting-item';
@@ -802,18 +842,19 @@ function createMusicPanel(config, labels) {
     id3LimitDiv.append(id3LimitLabel, id3LimitInput);
     section.appendChild(id3LimitDiv);
 
-    const albumLimitDiv = document.createElement('div');
-    albumLimitDiv.className = 'setting-item';
-    const albumLimitLabel = document.createElement('label');
-    albumLimitLabel.textContent = labels.albumlimit || 'Sayfa başına albüm sayısı:';
-    const albumLimitInput = document.createElement('input');
-    albumLimitInput.type = 'number';
-    albumLimitInput.value = config.albumlimit || 20;
-    albumLimitInput.name = 'albumlimit';
-    albumLimitInput.min = 1;
-    albumLimitInput.max = 9999;
-    albumLimitDiv.append(albumLimitLabel, albumLimitInput);
-    section.appendChild(albumLimitDiv);
+    const maxExcludeIdsForUriDiv = document.createElement('div');
+    maxExcludeIdsForUriDiv.className = 'setting-item';
+    const maxExcludeIdsForUriLabel = document.createElement('label');
+    maxExcludeIdsForUriLabel.textContent = labels.maxExcludeIdsForUri || 'Maksimum ID Sayısı';
+    maxExcludeIdsForUriLabel.title = labels.maxExcludeIdsForTitle || 'Bu değer, Liste yenilemek için API isteğinde aynı anda gönderilebilecek "Hariç Tutulacak Geçmiş Liste Sayısı" listesinin maksimum uzunluğunu belirler. Büyük değerler sunucu isteklerinin boyutunu aşarak hatalara neden olabilir. İsteklerin hatasız çalışması için genellikle 50-200 arası bir değer önerilir.';
+    const maxExcludeIdsForUriInput = document.createElement('input');
+    maxExcludeIdsForUriInput.type = 'number';
+    maxExcludeIdsForUriInput.value = config.maxExcludeIdsForUri || 100;
+    maxExcludeIdsForUriInput.title = labels.maxExcludeIdsForTitle || 'Bu değer, Liste yenilemek için API isteğinde aynı anda gönderilebilecek "Hariç Tutulacak Geçmiş Liste Sayısı" listesinin maksimum uzunluğunu belirler. Büyük değerler sunucu isteklerinin boyutunu aşarak hatalara neden olabilir. İsteklerin hatasız çalışması için genellikle 50-200 arası bir değer önerilir.';
+    maxExcludeIdsForUriInput.name = 'maxExcludeIdsForUri';
+    maxExcludeIdsForUriInput.min = 1;
+    maxExcludeIdsForUriDiv.append(maxExcludeIdsForUriLabel, maxExcludeIdsForUriInput);
+    section.appendChild(maxExcludeIdsForUriDiv);
 
     const historyLimitDiv = document.createElement('div');
     historyLimitDiv.className = 'setting-item';
@@ -826,7 +867,6 @@ function createMusicPanel(config, labels) {
     historyLimitInput.name = 'historylimit';
     historyLimitInput.title = labels.historylimitTitle || 'Yeni listelere, geçmiş listeler içerisindeki şarkıları dahil etmemek için limit belirleyin';
     historyLimitInput.min = 1;
-    historyLimitInput.max = 9999;
     historyLimitDiv.append(historyLimitLabel, historyLimitInput);
     section.appendChild(historyLimitDiv);
 

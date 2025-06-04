@@ -1,5 +1,10 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  lyricsDelay: "Verzögerung",
+  notificationsEnabled: 'Benachrichtigungen anzeigen',
+  noTracksAvailable: "Es kann keine neue Wiedergabeliste erstellt werden, da alle Titel bereits zur aktuellen Liste hinzugefügt wurden",
+  maxExcludeIdsForUri: "Max. auszuschließende IDs",
+  maxExcludeIdsForTitle: "Dieser Wert bestimmt die maximale Länge der Liste 'Anzahl der auszuschließenden vorherigen Wiedergabelisten', die in einer einzigen API-Anfrage zum Aktualisieren der Liste gesendet werden kann. Große Werte können die Größenbeschränkung der Serveranfrage überschreiten und zu Fehlern führen. Ein Wert zwischen 50 und 200 wird für einen fehlerfreien Betrieb empfohlen.",
   dateLocale: 'Datumsformat',
   addToFavorites: "Zu Favoriten hinzufügen",
   removeFromFavorites: "Aus Favoriten entfernen",

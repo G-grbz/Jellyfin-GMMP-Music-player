@@ -20,6 +20,9 @@ function getNotificationClass(type) {
 }
 
 export function showNotification(message, duration = 2000, type = 'default') {
+
+  if (config.notificationsEnabled === false) return;
+
   if (type !== 'default') {
     notificationQueue = notificationQueue.filter(n => n.type !== type);
   }
