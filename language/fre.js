@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Langue par défaut",
+  lyricsDuration: "Durée d'activité",
   lyricsDelay: "Retard",
   notificationsEnabled: 'Afficher les notifications',
   noTracksAvailable: "Une nouvelle liste de lecture ne peut pas être créée car toutes les chansons ont déjà été ajoutées à la liste actuelle",
@@ -16,6 +17,10 @@ export const languageLabels = {
   playerTheme: "Thème du lecteur",
   darkTheme: "Sombre",
   lightTheme: "Clair",
+  lightThemeEnabled: "Thème clair activé",
+  darkThemeEnabled: "Thème sombre activé",
+  yatayStilEnabled: "Style horizontal activé",
+  dikeyStilEnabled: "Style vertical activé",
   playerStyle: "Style",
   yatayStil: "Vue horizontale",
   dikeyStil: "Vue verticale",

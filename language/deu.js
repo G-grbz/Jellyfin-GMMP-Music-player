@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  lyricsDuration: "Aktive Dauer",
   lyricsDelay: "Verzögerung",
   notificationsEnabled: 'Benachrichtigungen anzeigen',
   noTracksAvailable: "Es kann keine neue Wiedergabeliste erstellt werden, da alle Titel bereits zur aktuellen Liste hinzugefügt wurden",
@@ -16,6 +17,10 @@ export const languageLabels = {
   playerTheme: "Player-Design",
   darkTheme: "Dunkel",
   lightTheme: "Hell",
+  lightThemeEnabled: "Helles Design aktiviert",
+  darkThemeEnabled: "Dunkles Design aktiviert",
+  yatayStilEnabled: "Horizontaler Stil aktiviert",
+  dikeyStilEnabled: "Vertikaler Stil aktiviert",
   playerStyle: "Stil",
   yatayStil: "Horizontale Ansicht",
   dikeyStil: "Vertikale Ansicht",

@@ -15,6 +15,7 @@ import { showGenreFilterModal } from "./genreFilterModal.js";
 import { showTopTracksModal } from "./topModal.js";
 import { getAuthToken } from "../core/auth.js";
 import { showNotification } from "./notification.js";
+import { loadCSS } from "../main.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
@@ -57,17 +58,32 @@ export function createModernPlayerUI() {
   topControlsContainer.className = "top-controls-container";
 
   const buttonsTop = [
+    {
+        className: "theme-toggle-btn",
+        iconClass: config.playerTheme === 'light' ? "fas fa-moon" : "fas fa-sun",
+        title: config.playerTheme === 'light' ? config.languageLabels.darkTheme || 'Karanlık Tema' : config.languageLabels.lightTheme || 'Aydınlık Tema',
+        onClick: toggleTheme
+    },
+    {
+        className: "style-toggle-btn",
+        iconClass: config.playerStyle === 'player' ? "fas fa-arrows-alt-h" : "fas fa-arrows-alt-v",
+        title: config.playerStyle === 'player' ? config.languageLabels.dikeyStil || 'Dikey Stil' : config.languageLabels.yatayStil || 'Yatay Stil',
+        onClick: togglePlayerStyle
+    },
     { className: "playlist-btn", iconClass: "fas fa-list", title: config.languageLabels.playlist, onClick: togglePlaylistModal },
     { className: "jplaylist-btn", iconClass: "fas fa-list-music", title: config.languageLabels.jellyfinPlaylists || "Jellyfin Oynatma Listesi", onClick: showJellyfinPlaylistsModal },
     {
-    className: "settingsLink", iconClass: "fas fa-cog", title: config.languageLabels.ayarlar || "Ayarlar", onClick: (e) => {
-        e.preventDefault();
-        const settings = initSettings();
-        settings.open('music');
-    }
+        className: "settingsLink",
+        iconClass: "fas fa-cog",
+        title: config.languageLabels.ayarlar || "Ayarlar",
+        onClick: (e) => {
+            e.preventDefault();
+            const settings = initSettings();
+            settings.open('music');
+        }
     },
     { className: "kapat-btn", iconClass: "fas fa-times", title: config.languageLabels.close || "Close", onClick: togglePlayerVisibility },
-  ];
+];
 
   buttonsTop.forEach(btnInfo => {
     const div = document.createElement("div");
@@ -324,6 +340,11 @@ export async function updateNextTracks() {
   if (!nextTracksContainer || !playlist) return;
   nextTracksContainer.innerHTML = '';
 
+  const playlistLength = playlist.length;
+  if (playlistLength <= 1) {
+    return;
+  }
+
   if (!musicPlayerState.playedHistory ||
       musicPlayerState.lastShuffleState !== userSettings.shuffle ||
       musicPlayerState.lastCurrentIndex !== currentIndex) {
@@ -348,11 +369,9 @@ export async function updateNextTracks() {
   );
 
   const nextIndices = [];
-  const playlistLength = playlist.length;
 
   if (userSettings.shuffle) {
     const playedSet = new Set(musicPlayerState.playedHistory);
-
     if (!playedSet.has(currentIndex)) {
       playedSet.add(currentIndex);
     }
@@ -398,7 +417,6 @@ export async function updateNextTracks() {
         musicPlayerState.playedHistory.push(idx);
       }
       attempts++;
-
       if (attempts >= playlistLength && nextIndices.length === 0) {
         musicPlayerState.playedHistory = [currentIndex];
         idx = currentIndex;
@@ -660,4 +678,68 @@ export function checkMarqueeNeeded(element) {
       element.style.transform = 'none';
     }
   });
+}
+
+function toggleTheme() {
+    const config = getConfig();
+    const newTheme = config.playerTheme === 'light' ? 'dark' : 'light';
+    const updatedConfig = {
+        ...config,
+        playerTheme: newTheme
+    };
+    updateConfig(updatedConfig);
+    const themeBtn = document.querySelector('.theme-toggle-btn');
+    if (themeBtn) {
+        themeBtn.innerHTML = `<i class="fas fa-${newTheme === 'light' ? 'moon' : 'sun'}"></i>`;
+        themeBtn.title = newTheme === 'light' ? config.languageLabels.darkTheme || 'Karanlık Tema' : config.languageLabels.lightTheme || 'Aydınlık Tema';
+    }
+    loadCSS();
+
+    showNotification(
+        `<i class="fas fa-${newTheme === 'light' ? 'sun' : 'moon'}"></i> ${newTheme === 'light' ? config.languageLabels.lightThemeEnabled || 'Aydınlık tema etkin' : config.languageLabels.darkThemeEnabled || 'Karanlık tema etkin'}`,
+        2000,
+        'info'
+    );
+}
+
+function updateConfig(updatedConfig) {
+    Object.entries(updatedConfig).forEach(([key, value]) => {
+        if (typeof value === 'boolean') {
+            localStorage.setItem(key, value ? 'true' : 'false');
+        } else if (Array.isArray(value)) {
+            localStorage.setItem(key, JSON.stringify(value));
+        } else if (value !== undefined && value !== null) {
+            localStorage.setItem(key, value);
+        }
+    });
+}
+
+function togglePlayerStyle() {
+  const config = getConfig();
+  const newStyle = config.playerStyle === 'player' ? 'newplayer' : 'player';
+  const iconName = newStyle === 'player' ? 'arrows-alt-h' : 'arrows-alt-v';
+  const updatedConfig = {
+    ...config,
+    playerStyle: newStyle
+  };
+  updateConfig(updatedConfig);
+
+  const styleBtn = document.querySelector('.style-toggle-btn');
+  if (styleBtn) {
+    styleBtn.innerHTML = `<i class="fas fa-${iconName}"></i>`;
+    styleBtn.title = newStyle === 'player'
+      ? config.languageLabels.dikeyStil || 'Dikey Stil'
+      : config.languageLabels.yatayStil || 'Yatay Stil';
+  }
+
+  loadCSS();
+  showNotification(
+    `<i class="fas fa-${iconName}"></i> ${
+      newStyle === 'player'
+        ? config.languageLabels.yatayStilEnabled || 'Yatay stil etkin'
+        : config.languageLabels.dikeyStilEnabled || 'Dikey stil etkin'
+    }`,
+    2000,
+    'info'
+  );
 }

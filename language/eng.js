@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Default Language",
+  lyricsDuration: "Active Duration",
   lyricsDelay: "Delay",
   notificationsEnabled: 'Show Notifications',
   noTracksAvailable: "A new playlist cannot be created because all songs have already been added to the current list",
@@ -16,6 +17,10 @@ export const languageLabels = {
   playerTheme: "Player Theme",
   darkTheme: "Dark",
   lightTheme: "Light",
+  lightThemeEnabled: "Light theme enabled",
+  darkThemeEnabled: "Dark theme enabled",
+  yatayStilEnabled: "Horizontal style enabled",
+  dikeyStilEnabled: "Vertical style enabled",
   playerStyle: "Style",
   yatayStil: "Horizontal View",
   dikeyStil: "Vertical View",

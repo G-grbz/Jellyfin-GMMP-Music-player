@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Язык по умолчанию",
+  lyricsDuration: "Время активности",
   lyricsDelay: "Задерживать",
   notificationsEnabled: 'Показать уведомления',
   noTracksAvailable: "Невозможно создать новый плейлист, так как все песни уже добавлены в текущий список",
@@ -16,6 +17,10 @@ export const languageLabels = {
   playerTheme: "Тема плеера",
   darkTheme: "Тёмная",
   lightTheme: "Светлая",
+  lightThemeEnabled: "Светлая тема включена",
+  darkThemeEnabled: "Тёмная тема включена",
+  yatayStilEnabled: "Горизонтальный стиль включён",
+  dikeyStilEnabled: "Вертикальный стиль включён",
   playerStyle: "Стиль",
   yatayStil: "Горизонтальный вид",
   dikeyStil: "Вертикальный вид",

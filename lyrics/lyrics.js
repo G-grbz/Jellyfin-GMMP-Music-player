@@ -95,8 +95,11 @@ export function displayLyrics(data) {
   const headerContainer = document.createElement("div");
   headerContainer.className = "lyrics-header-container";
 
+  const settingsContainer = document.createElement("div");
+  settingsContainer.className = "lyrics-settings-container";
+
   const delayContainer = document.createElement("div");
-  delayContainer.className = "lyrics-delay-container";
+  delayContainer.className = "lyrics-setting-group";
 
   const delayLabel = document.createElement("span");
   delayLabel.textContent = config.languageLabels.lyricsDelay || "Gecikme: ";
@@ -110,7 +113,7 @@ export function displayLyrics(data) {
   delaySlider.className = "lyrics-delay-slider";
 
   const delayValue = document.createElement("span");
-  delayValue.className = "lyrics-delay-value";
+  delayValue.className = "lyrics-setting-value";
   delayValue.textContent = `${delaySlider.value}s`;
 
   delaySlider.addEventListener("input", (e) => {
@@ -125,9 +128,8 @@ export function displayLyrics(data) {
     manualInput.type = "number";
     manualInput.step = "0.1";
     manualInput.value = delaySlider.value;
-    manualInput.className = "lyrics-delay-manual-input";
+    manualInput.className = "lyrics-setting-manual-input";
     manualInput.style.width = "4em";
-    manualInput.style.marginLeft = "0.5em";
 
     delayValue.style.display = "none";
     delayValue.parentNode.insertBefore(manualInput, delayValue.nextSibling);
@@ -173,6 +175,87 @@ export function displayLyrics(data) {
 
   delayContainer.append(delayLabel, delaySlider, delayValue);
 
+  const durationContainer = document.createElement("div");
+  durationContainer.className = "lyrics-setting-group";
+
+  const durationLabel = document.createElement("span");
+  durationLabel.textContent = config.languageLabels.lyricsDuration || "Aktiflik Süresi: ";
+
+  const durationSlider = document.createElement("input");
+  durationSlider.type = "range";
+  durationSlider.min = "1";
+  durationSlider.max = "15";
+  durationSlider.step = "0.5";
+  durationSlider.value = localStorage.getItem("lyricsDuration") || "5";
+  durationSlider.className = "lyrics-duration-slider";
+
+  const durationValue = document.createElement("span");
+  durationValue.className = "lyrics-setting-value";
+  durationValue.textContent = `${durationSlider.value}s`;
+
+  durationSlider.addEventListener("input", (e) => {
+    const value = e.target.value;
+    durationValue.textContent = `${value}s`;
+    localStorage.setItem("lyricsDuration", value);
+    musicPlayerState.lyricsDuration = parseFloat(value);
+  });
+
+  durationValue.addEventListener("click", (e) => {
+    const manualInput = document.createElement("input");
+    manualInput.type = "number";
+    manualInput.step = "0.5";
+    manualInput.min = "1";
+    manualInput.max = "15";
+    manualInput.value = durationSlider.value;
+    manualInput.className = "lyrics-setting-manual-input";
+    manualInput.style.width = "4em";
+
+    durationValue.style.display = "none";
+    durationValue.parentNode.insertBefore(manualInput, durationValue.nextSibling);
+
+    function applyManualValue() {
+      let v = parseFloat(manualInput.value);
+      if (isNaN(v)) {
+        v = 5;
+      }
+      if (v < parseFloat(durationSlider.min)) v = parseFloat(durationSlider.min);
+      if (v > parseFloat(durationSlider.max)) v = parseFloat(durationSlider.max);
+      durationSlider.value = v;
+      durationValue.textContent = `${v}s`;
+      localStorage.setItem("lyricsDuration", v);
+      musicPlayerState.lyricsDuration = v;
+      manualInput.removeEventListener("blur", onBlur);
+      manualInput.removeEventListener("keydown", onKeyDown);
+      manualInput.parentNode.removeChild(manualInput);
+      durationValue.style.display = "";
+    }
+
+    function onBlur() {
+      applyManualValue();
+    }
+
+    function onKeyDown(ev) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        applyManualValue();
+      }
+      else if (ev.key === "Escape") {
+        manualInput.removeEventListener("blur", onBlur);
+        manualInput.removeEventListener("keydown", onKeyDown);
+        manualInput.parentNode.removeChild(manualInput);
+        durationValue.style.display = "";
+      }
+    }
+
+    manualInput.addEventListener("blur", onBlur);
+    manualInput.addEventListener("keydown", onKeyDown);
+    manualInput.focus();
+  });
+
+  durationContainer.append(durationLabel, durationSlider, durationValue);
+
+  settingsContainer.append(delayContainer, durationContainer);
+
   const updateBtn = document.createElement("span");
   updateBtn.className = "update-lyrics-btn";
   updateBtn.title = config.languageLabels.updateLyrics || 'Şarkı sözünü güncelle';
@@ -182,7 +265,7 @@ export function displayLyrics(data) {
     if (track) updateSingleTrackLyrics(track.Id);
   });
 
-  headerContainer.append(delayContainer, updateBtn);
+  headerContainer.append(settingsContainer, updateBtn);
   musicPlayerState.lyricsContainer.appendChild(headerContainer);
 
   const contentContainer = document.createElement("div");
@@ -205,7 +288,6 @@ export function displayLyrics(data) {
     }
   }
 }
-
 
 function renderStructuredLyrics(lyricsArray, container) {
   const lines = [];
@@ -303,7 +385,6 @@ function renderPlainLine(line, container) {
   container.appendChild(lineContainer);
 }
 
-
 export function toggleLyrics() {
   musicPlayerState.lyricsActive = !musicPlayerState.lyricsActive;
   const el = musicPlayerState.lyricsContainer;
@@ -332,65 +413,131 @@ export function updateSyncedLyrics(currentTime) {
   const container = musicPlayerState.lyricsContainer;
   if (!lines?.length) return;
 
-  const delay = parseFloat(localStorage.getItem("lyricsDelay")) || 0;
-  const offset = currentTime + delay;
+  const delay   = parseFloat(localStorage.getItem("lyricsDelay"))   || 0;
+  const duration = parseFloat(localStorage.getItem("lyricsDuration")) || 5;
+  const offset  = currentTime + delay;
+
   if (offset < lines[0].time) {
     container.scrollTop = 0;
+    resetAllHighlights();
+    musicPlayerState.syncedLyrics.currentLine = -1;
     return;
   }
 
-  const idx = lines.findIndex((l, i) => l.time <= offset && (!lines[i + 1] || lines[i + 1].time > offset));
-
-  if (idx !== musicPlayerState.syncedLyrics.currentLine) {
-    musicPlayerState.syncedLyrics.currentLine = idx;
-    highlightLine(idx);
+  let currentIdx = 0;
+  let nextIdx    = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (offset >= lines[i].time) {
+      currentIdx = i;
+      nextIdx = i + 1 < lines.length ? i + 1 : null;
+    } else {
+      break;
+    }
   }
 
-  const activeLine = lines[idx];
-  if (activeLine) {
-    const elapsed = offset - activeLine.time;
-    const nextTime = (lines[idx + 1]?.time) || (activeLine.time + 5);
-    const duration = nextTime - activeLine.time;
+  const currentLine = lines[currentIdx];
+  const lineStart   = currentLine.time;
+  const lineEnd     = lineStart + duration;
 
-    const textEl = activeLine.element.querySelector(".lyrics-text");
-    const words = textEl?.querySelectorAll(".karaoke-word");
-    if (!words) return;
+  if (offset < lineEnd) {
+    musicPlayerState.syncedLyrics.currentLine = currentIdx;
+    highlightLine(currentIdx, null);
 
-    const wordsToHighlight = Math.floor((elapsed / duration) * words.length);
-    words.forEach((w, i) => {
-      if (i <= wordsToHighlight) w.classList.add("active");
-      else w.classList.remove("active");
-    });
+  } else {
+
+    if (nextIdx !== null && offset >= lines[nextIdx].time) {
+      musicPlayerState.syncedLyrics.currentLine = nextIdx;
+      const nextNext = (nextIdx + 1 < lines.length) ? nextIdx + 1 : null;
+      highlightLine(nextIdx, nextNext);
+
+    } else {
+      musicPlayerState.syncedLyrics.currentLine = -1;
+      highlightLine(-1, nextIdx);
+    }
   }
 }
 
-function highlightLine(idx) {
+
+function highlightLine(currentIdx, nextIdx) {
   const lines = musicPlayerState.currentLyrics;
 
-  lines.forEach((line, i) => {
-    const el = line.element;
-    if (i === idx) {
-      el.classList.add("lyrics-active");
-      smoothScrollIntoView(el);
-    } else {
-      el.classList.remove("lyrics-active");
-    }
+  lines.forEach((lineObj, i) => {
+    const el = lineObj.element;
+    el.classList.remove("lyrics-active", "lyrics-next");
+
+    const existingCheck = el.querySelector(".next-check");
+    if (existingCheck) existingCheck.remove();
+  });
+
+  if (currentIdx >= 0) {
+    const el = lines[currentIdx].element;
+    el.classList.add("lyrics-active");
+    smoothScrollIntoView(el);
+  }
+
+  if (nextIdx !== null) {
+    const nextEl = lines[nextIdx].element;
+    nextEl.classList.add("lyrics-next");
+    const nextup = document.createElement("span");
+    nextup.className = "next-check";
+    nextup.innerHTML = '<i class="fas fa-arrow-right"></i>';
+    nextEl.querySelector(".lyrics-text")?.prepend(nextup);
+  }
+}
+
+
+function resetAllHighlights() {
+  const lines = musicPlayerState.currentLyrics;
+  lines?.forEach(line => {
+    line.element.classList.remove("lyrics-active", "lyrics-next");
+    line.element.querySelectorAll('.active').forEach(w => w.classList.remove('active'));
+    const existingCheck = line.element.querySelector(".next-check");
+    if (existingCheck) existingCheck.remove();
   });
 }
 
 function smoothScrollIntoView(element) {
   const parent = musicPlayerState.lyricsContainer;
   const containerHeight = parent.clientHeight;
-  const elementTop = element.offsetTop;
-  const elementHeight = element.offsetHeight;
-  const scrollPosition = elementTop - (containerHeight / 2) + (elementHeight / 2);
+  const elementRect = element.getBoundingClientRect();
+  const containerRect = parent.getBoundingClientRect();
 
-  parent.style.scrollBehavior = 'smooth';
-  parent.scrollTop = Math.max(scrollPosition, 0);
+  const targetPosition = parent.scrollTop +
+                       elementRect.top -
+                       containerRect.top -
+                       (containerHeight / 2) +
+                       (elementRect.height / 2);
+  smoothScrollTo(parent, targetPosition);
+}
 
-  setTimeout(() => {
-    parent.style.scrollBehavior = 'auto';
-  }, 500);
+let isScrolling = false;
+function smoothScrollTo(element, targetPosition, duration = 500) {
+  if (isScrolling) return;
+  isScrolling = true;
+
+  const startPosition = element.scrollTop;
+  const distance = targetPosition - startPosition;
+  let startTime = null;
+
+  function animation(currentTime) {
+    if (!startTime) startTime = currentTime;
+    const timeElapsed = currentTime - startTime;
+    const progress = Math.min(timeElapsed / duration, 1);
+    const easeProgress = easeOutQuad(progress);
+    element.scrollTop = startPosition + (distance * easeProgress);
+
+    if (timeElapsed < duration) {
+      requestAnimationFrame(animation);
+    } else {
+      isScrolling = false;
+    }
+  }
+
+  function easeOutQuad(t) {
+    return t * (2 - t);
+  }
+
+  requestAnimationFrame(animation);
 }
 
 export function startLyricsSync() {

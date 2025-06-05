@@ -1,5 +1,6 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  lyricsDuration: "Aktif Kalma Süresi",
   lyricsDelay: "Gecikme",
   notificationsEnabled: 'Bildirimleri Göster',
   noTracksAvailable: "Tüm şarkılar mevcut listeye eklendiğinden yeni liste oluşturulamaz",
@@ -16,6 +17,10 @@ export const languageLabels = {
   playerTheme: "Oynatıcı Teması",
   darkTheme: "Karanlık",
   lightTheme: "Aydınlık",
+  lightThemeEnabled: "Aydınlık tema etkin",
+  darkThemeEnabled: "Karanlık tema etkin",
+  yatayStilEnabled: "Yatay stil etkin",
+  dikeyStilEnabled: "Dikey stil etkin",
   playerStyle: "Stil",
   yatayStil: "Yatay Görünüm",
   dikeyStil: "Dikey Görünüm",
