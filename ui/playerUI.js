@@ -702,44 +702,65 @@ function toggleTheme() {
     );
 }
 
+function isLocalStorageAvailable() {
+    try {
+        const testKey = 'test';
+        localStorage.setItem(testKey, testKey);
+        localStorage.removeItem(testKey);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 function updateConfig(updatedConfig) {
-    Object.entries(updatedConfig).forEach(([key, value]) => {
-        if (typeof value === 'boolean') {
-            localStorage.setItem(key, value ? 'true' : 'false');
-        } else if (Array.isArray(value)) {
-            localStorage.setItem(key, JSON.stringify(value));
-        } else if (value !== undefined && value !== null) {
-            localStorage.setItem(key, value);
+    if (!isLocalStorageAvailable()) return;
+
+    const keysToSave = ['playerTheme', 'playerStyle'];
+    keysToSave.forEach(key => {
+        const value = updatedConfig[key];
+        if (value !== undefined && value !== null) {
+            try {
+                if (typeof value === 'boolean') {
+                    localStorage.setItem(key, value ? 'true' : 'false');
+                } else if (Array.isArray(value)) {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } else {
+                    localStorage.setItem(key, value);
+                }
+            } catch (e) {
+            }
         }
     });
 }
 
 function togglePlayerStyle() {
-  const config = getConfig();
-  const newStyle = config.playerStyle === 'player' ? 'newplayer' : 'player';
-  const iconName = newStyle === 'player' ? 'arrows-alt-h' : 'arrows-alt-v';
-  const updatedConfig = {
-    ...config,
-    playerStyle: newStyle
-  };
-  updateConfig(updatedConfig);
+    const config = getConfig();
+    const newStyle = config.playerStyle === 'player' ? 'newplayer' : 'player';
+    const iconName = newStyle === 'player' ? 'arrows-alt-h' : 'arrows-alt-v';
+    const updatedConfig = {
+        ...config,
+        playerStyle: newStyle
+    };
 
-  const styleBtn = document.querySelector('.style-toggle-btn');
-  if (styleBtn) {
-    styleBtn.innerHTML = `<i class="fas fa-${iconName}"></i>`;
-    styleBtn.title = newStyle === 'player'
-      ? config.languageLabels.dikeyStil || 'Dikey Stil'
-      : config.languageLabels.yatayStil || 'Yatay Stil';
-  }
+    updateConfig(updatedConfig);
 
-  loadCSS();
-  showNotification(
-    `<i class="fas fa-${iconName}"></i> ${
-      newStyle === 'player'
-        ? config.languageLabels.yatayStilEnabled || 'Yatay stil etkin'
-        : config.languageLabels.dikeyStilEnabled || 'Dikey stil etkin'
-    }`,
-    2000,
-    'info'
-  );
+    const styleBtn = document.querySelector('.style-toggle-btn');
+    if (styleBtn) {
+        styleBtn.innerHTML = `<i class="fas fa-${iconName}"></i>`;
+        styleBtn.title = newStyle === 'player'
+            ? config.languageLabels.dikeyStil || 'Dikey Stil'
+            : config.languageLabels.yatayStil || 'Yatay Stil';
+    }
+
+    loadCSS();
+    showNotification(
+        `<i class="fas fa-${iconName}"></i> ${
+            newStyle === 'player'
+                ? config.languageLabels.yatayStilEnabled || 'Yatay stil etkin'
+                : config.languageLabels.dikeyStilEnabled || 'Dikey stil etkin'
+        }`,
+        2000,
+        'info'
+    );
 }
