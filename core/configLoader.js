@@ -14,6 +14,9 @@ const defaultConfig = {
   dateLocale: 'tr-TR',
   notificationsEnabled: 'false',
   maxExcludeIdsForUri: 100,
+  useAlbumArtAsBackground: 'false',
+  albumArtBackgroundBlur: 10,
+  albumArtBackgroundOpacity: 0.5,
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
     return getLanguageLabels(this.defaultLanguage);
@@ -37,6 +40,15 @@ export function getConfig() {
     dateLocale: localStorage.getItem('dateLocale') || 'tr-TR',
     maxExcludeIdsForUri: parseInt(localStorage.getItem('maxExcludeIdsForUri'), 10) || defaultConfig.maxExcludeIdsForUri,
     notificationsEnabled: localStorage.getItem('notificationsEnabled') !== 'false',
+    useAlbumArtAsBackground: localStorage.getItem('useAlbumArtAsBackground') === 'true',
+    albumArtBackgroundBlur: (() => {
+      const v = localStorage.getItem('albumArtBackgroundBlur');
+      return v !== null ? parseInt(v, 10) : 10;
+    })(),
+    albumArtBackgroundOpacity: (() => {
+      const v = localStorage.getItem('albumArtBackgroundOpacity');
+      return v !== null ? parseFloat(v) : 0.5;
+    })(),
   };
 }
 
@@ -95,6 +107,18 @@ export function updateConfig(newConfig) {
 
   if (newConfig.notificationsEnabled !== undefined) {
     localStorage.setItem('notificationsEnabled', newConfig.notificationsEnabled);
+  }
+
+  if (newConfig.useAlbumArtAsBackground !== undefined) {
+    localStorage.setItem('useAlbumArtAsBackground', newConfig.useAlbumArtAsBackground);
+  }
+
+  if (newConfig.albumArtBackgroundBlur !== undefined) {
+    localStorage.setItem('albumArtBackgroundBlur', newConfig.albumArtBackgroundBlur);
+  }
+
+  if (newConfig.albumArtBackgroundOpacity !== undefined) {
+    localStorage.setItem('albumArtBackgroundOpacity', newConfig.albumArtBackgroundOpacity);
   }
 
   const configUpdatedEvent = new CustomEvent('configUpdated', {

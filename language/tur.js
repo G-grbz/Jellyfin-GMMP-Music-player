@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  useAlbumArtAsBackground: "Albüm kapağını arka plan yap",
+  albumArtBackgroundBlur: "Arka plan bulanıklığı",
+  albumArtBackgroundOpacity: "Arka plan şeffaflığı",
   lyricsDuration: "Aktif Kalma Süresi",
   lyricsDelay: "Gecikme",
   notificationsEnabled: 'Bildirimleri Göster',

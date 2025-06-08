@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Langue par défaut",
+  useAlbumArtAsBackground: "Utiliser la pochette de l'album comme arrière-plan",
+  albumArtBackgroundBlur: "Flou de l'arrière-plan",
+  albumArtBackgroundOpacity: "Opacité de l'arrière-plan",
   lyricsDuration: "Durée d'activité",
   lyricsDelay: "Retard",
   notificationsEnabled: 'Afficher les notifications',

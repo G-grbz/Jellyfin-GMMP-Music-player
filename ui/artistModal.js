@@ -231,7 +231,6 @@ export function createArtistModal() {
                        currentTrack.ArtistId;
 
         if (artistId) {
-            const jellyfinServer = window.location.origin;
             window.open(`/web/#/details?id=${artistId}`, '_blank');
         }
     });
@@ -346,7 +345,7 @@ async function loadAllMusicFromJellyfin() {
             const { serverUrl, userId, apiKey, isValid } = getJellyfinCredentials();
 
             if (isValid) {
-                let musicUrl = `${window.location.origin}/Users/${userId}/Items?` + new URLSearchParams({
+                let musicUrl = `/Users/${userId}/Items?` + new URLSearchParams({
                     Recursive: true,
                     IncludeItemTypes: "Audio",
                     Fields: "PrimaryImageAspectRatio,MediaSources,AlbumArtist,Album,Artists",
@@ -809,7 +808,7 @@ export async function checkForNewMusic() {
         const { serverUrl, userId, apiKey, isValid } = getJellyfinCredentials();
         if (!isValid) return;
 
-        const allMusicUrl = `${window.location.origin}/Users/${userId}/Items?` + new URLSearchParams({
+        const allMusicUrl = `/Users/${userId}/Items?` + new URLSearchParams({
             Recursive: true,
             IncludeItemTypes: "Audio",
             Fields: "PrimaryImageAspectRatio,MediaSources,AlbumArtist,Album,Artists,Genres",
@@ -1228,7 +1227,7 @@ async function loadArtistImage(artistId) {
     }
 
     try {
-        let primaryImageUrl = `${window.location.origin}/Items/${artistId}/Images/Primary?fillHeight=300&quality=96`;
+        let primaryImageUrl = `/Items/${artistId}/Images/Primary?fillHeight=300&quality=96`;
         if (apiKey) primaryImageUrl += `&api_key=${apiKey}`;
 
         const img = new Image();
@@ -1252,7 +1251,7 @@ async function loadArtistDetails(artistId) {
     if (!isValid || !artistId) return null;
 
     try {
-        const url = `${window.location.origin}/Users/${userId}/Items/${artistId}?api_key=${apiKey}`;
+        const url = `/Users/${userId}/Items/${artistId}?api_key=${apiKey}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -1554,7 +1553,7 @@ function createAlbumHeader(album, apiKey) {
     const imageTag = album.AlbumPrimaryImageTag || album.PrimaryImageTag;
 
     if (albumId && imageTag) {
-        let imageUrl = `${window.location.origin}/Items/${albumId}/Images/Primary?fillHeight=100&quality=80&tag=${imageTag}`;
+        let imageUrl = `/Items/${albumId}/Images/Primary?fillHeight=100&quality=80&tag=${imageTag}`;
         if (apiKey) imageUrl += `&api_key=${apiKey}`;
 
         const img = new Image();

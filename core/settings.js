@@ -65,7 +65,7 @@ export function createSettingsModal() {
     const infoTab = createTab('info', labels.infoHeader || 'Tür, Yıl ve Ülke', false, true);
     const aboutTab = createTab('about', labels.aboutHeader || 'Hakkında', true);
 
-    tabContainer.append(
+   tabContainer.append(
         sliderTab, musicTab, aboutTab, statusRatingTab,
         actorTab, directorTab, languageTab, logoTitleTab,
         descriptionTab, providerTab, buttonsTab, infoTab, queryTab
@@ -199,6 +199,9 @@ export function createSettingsModal() {
             limit: parseInt(formData.get('limit'), 10),
             gecikmeSure: parseInt(formData.get('gecikmeSure'), 10),
             cssVariant: formData.get('cssVariant'),
+            useAlbumArtAsBackground: formData.get('useAlbumArtAsBackground') === 'on',
+            albumArtBackgroundBlur: parseInt(formData.get('albumArtBackgroundBlur')),
+            albumArtBackgroundOpacity: parseFloat(formData.get('albumArtBackgroundOpacity')),
 
             showCast: formData.get('showCast') === 'on',
             showProgressBar: formData.get('showProgressBar') === 'on',
@@ -227,6 +230,7 @@ export function createSettingsModal() {
             showActorRole: formData.get('showActorRole') === 'on',
             artistLimit: parseInt(formData.get('artistLimit'), 10),
 
+
             showDirectorWriter: formData.get('showDirectorWriter') === 'on',
             showDirector: formData.get('showDirector') === 'on',
             showWriter: formData.get('showWriter') === 'on',
@@ -246,8 +250,21 @@ export function createSettingsModal() {
             useListFile: formData.get('useListFile') === 'on',
             useManualList: formData.get('useManualList') === 'on',
             manualListIds: formData.get('manualListIds'),
-            customQueryString: formData.get('customQueryString'),
-            sortingKeywords: formData.get('sortingKeywords'),
+            customQueryString: (() => {
+              const raw = formData.get('customQueryString')?.trim();
+              if (!raw) {
+                return getConfig().customQueryString;
+              }
+              return raw;
+            })(),
+            sortingKeywords: (() => {
+              const raw = formData.get('sortingKeywords')?.trim();
+              if (!raw) {
+                return getConfig().sortingKeywords;
+              }
+              return raw.split(',').map(k => k.trim());
+            })(),
+
             showLanguageInfo: formData.get('showLanguageInfo') === 'on',
 
             showLogoOrTitle: formData.get('showLogoOrTitle') === 'on',
@@ -283,6 +300,19 @@ export function createSettingsModal() {
         };
 
         updateConfig(updatedConfig);
+        const rawQuery = formData.get('customQueryString')?.trim();
+        if (!rawQuery) {
+          localStorage.removeItem('customQueryString');
+        } else {
+          localStorage.setItem('customQueryString', rawQuery);
+        }
+
+        const rawInput = formData.get('sortingKeywords')?.trim();
+        if (!rawInput) {
+          localStorage.removeItem('sortingKeywords');
+        } else {
+          localStorage.setItem('sortingKeywords', JSON.stringify(updatedConfig.sortingKeywords));
+        }
         if (oldTheme !== updatedConfig.playerTheme || oldPlayerStyle !== updatedConfig.playerStyle) {
         loadCSS();
     }
@@ -298,6 +328,10 @@ export function createSettingsModal() {
         });
         location.reload();
     }
+
+     setTimeout(() => {
+      setupMobileTextareaBehavior();
+    }, 100);
 
     return modal;
 }
@@ -397,7 +431,7 @@ function createSliderPanel(config, labels) {
 
     const progressWidthInput = document.createElement('input');
     progressWidthInput.type = 'number';
-    progressWidthInput.value = (config.progressBarWidth || '100').replace('%', '');
+    progressWidthInput.value = parseInt(config.progressBarWidth) || 100;
     progressWidthInput.name = 'progressBarWidth';
     progressWidthInput.min = 0;
     progressWidthInput.max = 100;
@@ -641,9 +675,24 @@ function createMusicPanel(config, labels) {
 
     const section = createSection(labels.gmmpSettings || 'GMMP Ayarları');
 
+    const notificationToggleDiv = document.createElement('div');
+    notificationToggleDiv.className = 'setting-item';
+
+    const notificationToggleInput = document.createElement('input');
+    notificationToggleInput.type = 'checkbox';
+    notificationToggleInput.checked = config.notificationsEnabled !== false;
+    notificationToggleInput.name = 'notificationsEnabled';
+    notificationToggleInput.id = 'notificationsEnabled';
+
+    const notificationToggleLabel = document.createElement('label');
+    notificationToggleLabel.textContent = labels.notificationsEnabled || 'Bildirimleri Göster:';
+    notificationToggleLabel.htmlFor = 'notificationsEnabled';
+
+    notificationToggleDiv.append(notificationToggleInput, notificationToggleLabel);
+    section.appendChild(notificationToggleDiv);
+
     const languageDiv = document.createElement('div');
     languageDiv.className = 'setting-item';
-
     const languageLabel = document.createElement('label');
     languageLabel.textContent = labels.defaultLanguage || 'Dil:';
     const languageSelect = document.createElement('select');
@@ -670,21 +719,74 @@ function createMusicPanel(config, labels) {
     languageDiv.append(languageLabel, languageSelect);
     section.appendChild(languageDiv);
 
-    const notificationToggleDiv = document.createElement('div');
-    notificationToggleDiv.className = 'setting-item';
+    const albumArtBgDiv = document.createElement('div');
+    albumArtBgDiv.className = 'setting-item';
 
-    const notificationToggleInput = document.createElement('input');
-    notificationToggleInput.type = 'checkbox';
-    notificationToggleInput.checked = config.notificationsEnabled !== false;
-    notificationToggleInput.name = 'notificationsEnabled';
-    notificationToggleInput.id = 'notificationsEnabled';
+    const albumArtBgLabel = document.createElement('label');
+    albumArtBgLabel.textContent = labels.useAlbumArtAsBackground || 'Albüm kapağını arka plan yap:';
 
-    const notificationToggleLabel = document.createElement('label');
-    notificationToggleLabel.textContent = labels.notificationsEnabled || 'Bildirimleri Göster:';
-    notificationToggleLabel.htmlFor = 'notificationsEnabled';
+    const albumArtBgInput = document.createElement('input');
+    albumArtBgInput.type = 'checkbox';
+    albumArtBgInput.checked = config.useAlbumArtAsBackground || false;
+    albumArtBgInput.name = 'useAlbumArtAsBackground';
+    albumArtBgInput.id = 'useAlbumArtAsBackground';
 
-    notificationToggleDiv.append(notificationToggleInput, notificationToggleLabel);
-    section.appendChild(notificationToggleDiv);
+    albumArtBgDiv.append(albumArtBgLabel, albumArtBgInput);
+    section.appendChild(albumArtBgDiv);
+
+    const blurDiv = document.createElement('div');
+    blurDiv.className = 'setting-item';
+
+    const blurLabel = document.createElement('label');
+    blurLabel.textContent = labels.albumArtBackgroundBlur || 'Arka plan bulanıklığı:';
+    blurLabel.htmlFor = 'albumArtBackgroundBlur';
+
+    const blurInput = document.createElement('input');
+    blurInput.type = 'range';
+    blurInput.min = '0';
+    blurInput.max = '20';
+    blurInput.step = '1';
+    blurInput.value = config.albumArtBackgroundBlur ?? 10;
+    blurInput.name = 'albumArtBackgroundBlur';
+    blurInput.id = 'albumArtBackgroundBlur';
+
+    const blurValue = document.createElement('span');
+    blurValue.className = 'range-value';
+    blurValue.textContent = blurInput.value + 'px';
+
+    blurInput.addEventListener('input', () => {
+        blurValue.textContent = blurInput.value + 'px';
+    });
+
+    blurDiv.append(blurLabel, blurInput, blurValue);
+    section.appendChild(blurDiv);
+
+    const opacityDiv = document.createElement('div');
+    opacityDiv.className = 'setting-item';
+
+    const opacityLabel = document.createElement('label');
+    opacityLabel.textContent = labels.albumArtBackgroundOpacity || 'Arka plan şeffaflığı:';
+    opacityLabel.htmlFor = 'albumArtBackgroundOpacity';
+
+    const opacityInput = document.createElement('input');
+    opacityInput.type = 'range';
+    opacityInput.min = '0';
+    opacityInput.max = '1';
+    opacityInput.step = '0.1';
+    opacityInput.value = config.albumArtBackgroundOpacity ?? 0.5;
+    opacityInput.name = 'albumArtBackgroundOpacity';
+    opacityInput.id = 'albumArtBackgroundOpacity';
+
+    const opacityValue = document.createElement('span');
+    opacityValue.className = 'range-value';
+    opacityValue.textContent = opacityInput.value;
+
+    opacityInput.addEventListener('input', () => {
+        opacityValue.textContent = opacityInput.value;
+    });
+
+    opacityDiv.append(opacityLabel, opacityInput, opacityValue);
+    section.appendChild(opacityDiv);
 
     const styleDiv = document.createElement('div');
     styleDiv.className = 'setting-item';
@@ -789,7 +891,7 @@ function createMusicPanel(config, labels) {
     musicLimitInput.name = 'muziklimit';
     musicLimitInput.min = 1;
     musicLimitDiv.append(musicLimitLabel, musicLimitInput);
-    section.appendChild( musicLimitDiv);
+    section.appendChild(musicLimitDiv);
 
     const nextTrackDiv = document.createElement('div');
     nextTrackDiv.className = 'setting-item';
@@ -974,8 +1076,7 @@ function createQueryPanel(config, labels) {
     queryStringTextarea.name = 'customQueryString';
     queryStringTextarea.placeholder = labels.customQueryStringPlaceholder ||
       'Örnek: IncludeItemTypes=Movie&hasOverview=true&imageTypes=Backdrop';
-    queryStringTextarea.value = config.customQueryString ||
-                               config.listcustomQueryString;
+    queryStringTextarea.value = config.customQueryString;
     section.appendChild(queryStringTextarea);
 
     const sortingLabel = document.createElement('label');
@@ -1207,7 +1308,7 @@ function createAboutPanel(labels) {
     panel.id = 'about-panel';
     panel.className = 'settings-panel';
 
-    const section = createSection('GMMP');
+    const section = createSection('JELLYFIN MEDIA SLIDER');
 
     const info = document.createElement('div');
     info.className = 'ggrbz-info';
@@ -1560,7 +1661,18 @@ export function initSettings(defaultTab = 'slider') {
     };
 }
 
-function updateConfig(updatedConfig) {
+export function isLocalStorageAvailable() {
+    try {
+        const testKey = 'test';
+        localStorage.setItem(testKey, testKey);
+        localStorage.removeItem(testKey);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+export function updateConfig(updatedConfig) {
     Object.entries(updatedConfig).forEach(([key, value]) => {
         if (typeof value === 'boolean') {
             localStorage.setItem(key, value ? 'true' : 'false');
@@ -1570,4 +1682,66 @@ function updateConfig(updatedConfig) {
             localStorage.setItem(key, value);
         }
     });
+    if (updatedConfig.defaultLanguage !== undefined) {
+    localStorage.setItem('defaultLanguage', updatedConfig.defaultLanguage);
+  }
+   if (updatedConfig.dateLocale !== undefined) {
+    localStorage.setItem('dateLocale', updatedConfig.dateLocale);
+  }
+    if (!isLocalStorageAvailable()) return;
+  const keysToSave = [
+    'playerTheme',
+    'playerStyle',
+    'useAlbumArtAsBackground',
+    'albumArtBackgroundBlur',
+    'albumArtBackgroundOpacity'
+  ];
+  keysToSave.forEach(key => {
+    const value = updatedConfig[key];
+    if (value !== undefined && value !== null) {
+      localStorage.setItem(key, typeof value === 'boolean'
+        ? value.toString()
+        : value.toString());
+    }
+  });
+}
+
+function setupMobileTextareaBehavior() {
+  const modal = document.getElementById('settings-modal');
+  if (!modal) return;
+
+  const textareas = modal.querySelectorAll('textarea');
+
+  textareas.forEach(textarea => {
+    textarea.addEventListener('focus', function() {
+      if (!isMobileDevice()) return;
+      this.style.position = 'fixed';
+      this.style.bottom = '50%';
+      this.style.left = '0';
+      this.style.right = '0';
+      this.style.zIndex = '10000';
+      this.style.height = '30vh';
+
+      setTimeout(() => {
+        this.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 300);
+    });
+
+    textarea.addEventListener('blur', function() {
+      if (!isMobileDevice()) return;
+      this.style.position = '';
+      this.style.bottom = '';
+      this.style.left = '';
+      this.style.right = '';
+      this.style.zIndex = '';
+      this.style.height = '';
+    });
+  });
+}
+
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }

@@ -1,7 +1,6 @@
 import { musicPlayerState } from "../core/state.js";
 import { getConfig } from "../core/configLoader.js";
 import { showNotification } from "../ui/notification.js";
-import { getFromOfflineCache, cacheForOffline } from "../core/offlineCache.js";
 import { readID3Tags, parseID3Tags } from "./id3Reader.js";
 import { getAuthToken } from "../core/auth.js";
 import { musicDB } from "../utils/db.js";
@@ -89,6 +88,7 @@ export async function getEmbeddedLyrics(trackId) {
 }
 
 export function displayLyrics(data) {
+  musicPlayerState.lyricsContainer.scrollTop = 0;
   musicPlayerState.currentLyrics = [];
   musicPlayerState.lyricsContainer.innerHTML = "";
 

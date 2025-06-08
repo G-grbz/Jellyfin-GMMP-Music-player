@@ -6,7 +6,7 @@ import { updateProgress, setupProgressControls } from "../player/progress.js";
 import { toggleLyrics } from "../lyrics/lyrics.js";
 import { toggleRepeatMode, toggleShuffle, toggleMute, toggleRemoveOnPlayMode } from "./controls.js";
 import { refreshPlaylist } from "../core/playlist.js";
-import { initSettings } from '../core/settings.js';
+import { initSettings, updateConfig } from '../core/settings.js';
 import { showJellyfinPlaylistsModal } from '../core/jellyfinPlaylists.js';
 import { togglePlayerVisibility } from '../utils/mainIndex.js';
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
@@ -18,10 +18,11 @@ import { showNotification } from "./notification.js";
 import { loadCSS } from "../main.js";
 
 const config = getConfig();
-const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
+const DEFAULT_ARTWORK = "/web/GMMP/src/images/defaultArt.png";
+const DEFAULT_ARTWORK_CSS = `url('${DEFAULT_ARTWORK}')`;
 
 function createButton({ className, iconClass, title, onClick, id = "" }) {
-  const btn = document.createElement("button");
+  const btn = document.createElement("div");
   btn.className = `player-btn ${className || ""}`.trim();
   if (id) btn.id = id;
   btn.innerHTML = `<i class="${iconClass}"></i>`;
@@ -37,6 +38,10 @@ export function createModernPlayerUI() {
     ariaLabel: "Music Player",
     ariaHidden: "true"
   });
+
+  const bgLayer = document.createElement("div");
+  bgLayer.className = "player-bg-layer";
+  player.appendChild(bgLayer);
 
   const nextTracksContainer = document.createElement("div");
   nextTracksContainer.className = "next-tracks-container";
@@ -323,6 +328,7 @@ setTimeout(() => {
   setupProgressControls();
   loadUserSettings();
   setupArtistClickHandler();
+  updatePlayerBackground();
 
   return { player, albumArt, title: titleContainer, artist, progressBar, progress, playPauseBtn, progressContainer, currentTimeEl, durationEl, volumeSlider, lyricsContainer, lyricsBtn };
 }
@@ -440,7 +446,7 @@ export async function updateNextTracks() {
 
     const coverElement = document.createElement('div');
     coverElement.className = 'next-track-cover';
-    coverElement.style.backgroundImage = DEFAULT_ARTWORK;
+    coverElement.style.backgroundImage = DEFAULT_ARTWORK_CSS;
     coverElement.onclick = () => playTrack(nextIndex);
 
     const titleElement = document.createElement('div');
@@ -589,7 +595,7 @@ async function getTrackImage(track, cache) {
   const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
   const imageId = track.AlbumId || trackId;
   if (imageTag) {
-    return `/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=80&tag=${imageTag}`;
+    return `/Items/${imageId}/Images/Primary?fillHeight=100&fillWidth=100&quality=99&tag=${imageTag}`;
   }
 
   return null;
@@ -702,42 +708,10 @@ function toggleTheme() {
     );
 }
 
-function isLocalStorageAvailable() {
-    try {
-        const testKey = 'test';
-        localStorage.setItem(testKey, testKey);
-        localStorage.removeItem(testKey);
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
-function updateConfig(updatedConfig) {
-    if (!isLocalStorageAvailable()) return;
-
-    const keysToSave = ['playerTheme', 'playerStyle'];
-    keysToSave.forEach(key => {
-        const value = updatedConfig[key];
-        if (value !== undefined && value !== null) {
-            try {
-                if (typeof value === 'boolean') {
-                    localStorage.setItem(key, value ? 'true' : 'false');
-                } else if (Array.isArray(value)) {
-                    localStorage.setItem(key, JSON.stringify(value));
-                } else {
-                    localStorage.setItem(key, value);
-                }
-            } catch (e) {
-            }
-        }
-    });
-}
-
 function togglePlayerStyle() {
     const config = getConfig();
     const newStyle = config.playerStyle === 'player' ? 'newplayer' : 'player';
-    const iconName = newStyle === 'player' ? 'arrows-alt-h' : 'arrows-alt-v';
+    const iconName = newStyle === 'player' ? 'arrows-alt-v' : 'arrows-alt-h';
     const updatedConfig = {
         ...config,
         playerStyle: newStyle
@@ -763,4 +737,60 @@ function togglePlayerStyle() {
         2000,
         'info'
     );
+}
+
+export function updatePlayerBackground() {
+  const config = getConfig();
+  const bgLayer = document.querySelector('#modern-music-player .player-bg-layer');
+  const track = musicPlayerState.playlist?.[musicPlayerState.currentIndex];
+
+  let bgUrl = DEFAULT_ARTWORK;
+
+  if (track) {
+    const tag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;
+    const id = track.AlbumId || track.Id;
+    if (tag && id) {
+      bgUrl = `/Items/${id}/Images/Primary?fillHeight=1000&fillWidth=1000&quality=96&tag=${tag}`;
+    }
+  }
+
+  if (config.useAlbumArtAsBackground) {
+    const img = new Image();
+    img.onload = () => {
+      bgLayer.style.backgroundImage = `url('${bgUrl}')`;
+      bgLayer.style.opacity = config.albumArtBackgroundOpacity;
+      bgLayer.style.filter = `blur(${config.albumArtBackgroundBlur}px)`;
+      bgLayer.style.display = 'block';
+    };
+    img.onerror = () => {
+      bgLayer.style.backgroundImage = DEFAULT_ARTWORK_CSS;
+      bgLayer.style.opacity = config.albumArtBackgroundOpacity;
+      bgLayer.style.filter = `blur(${config.albumArtBackgroundBlur}px)`;
+      bgLayer.style.display = 'block';
+    };
+    img.src = bgUrl;
+  } else {
+    bgLayer.style.backgroundImage = 'none';
+    bgLayer.style.opacity = '';
+    bgLayer.style.filter = '';
+  }
+}
+
+export async function updateAlbumArt(artUrl) {
+  return new Promise((resolve) => {
+    const albumArtEl = musicPlayerState.albumArtEl;
+    if (!albumArtEl) return resolve();
+
+    const url = artUrl ? `url('${artUrl}')` : DEFAULT_ARTWORK_CSS;
+    const img = new Image();
+    img.onload = () => {
+      albumArtEl.style.backgroundImage = url;
+      resolve();
+    };
+    img.onerror = () => {
+      albumArtEl.style.backgroundImage = DEFAULT_ARTWORK_CSS;
+      resolve();
+    };
+    img.src = artUrl || DEFAULT_ARTWORK;
+  });
 }

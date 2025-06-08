@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Default Language",
+  useAlbumArtAsBackground: "Use album art as background",
+  albumArtBackgroundBlur: "Background blur",
+  albumArtBackgroundOpacity: "Background opacity",
   lyricsDuration: "Active Duration",
   lyricsDelay: "Delay",
   notificationsEnabled: 'Show Notifications',
