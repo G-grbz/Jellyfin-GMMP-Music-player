@@ -1,15 +1,54 @@
-## 🎵 GMMP Müzik Çalar
-Jellyfin için hazırlanmış Müzik oynatıcı.
+
+## <p align="center"> 🎵 GMMP Müzik Çalar </p>
+
+## <p align="center"> Jellyfin için hazırlanmış Müzik oynatıcı. </p>
 
 
 <details>
 <summary>🖼️ Ekran Görüntüleri / Screenshots </summary>
 
-![3](https://github.com/user-attachments/assets/fa2f14da-13b5-4123-ad42-886d5db93578)
+<details>
 
-![2](https://github.com/user-attachments/assets/1738937b-90dc-49fa-bdab-830d5158fd20)
+<summary> :computer: Desktop / Masaüstü </summary>
 
-![1](https://github.com/user-attachments/assets/b863fda6-929f-4d24-a776-a5282b2a8492)
+<p align="center">
+
+  <img src="https://github.com/user-attachments/assets/589797b2-0da5-45ae-ad9c-c9879e6c9161" alt="d2-light"/>
+
+  <img src="https://github.com/user-attachments/assets/3ebc9004-6dab-4a7a-b727-1a95eb9b1c71" alt="d2-dark" width="250" />
+
+  <img src="https://github.com/user-attachments/assets/33d80ffd-5051-446d-aecd-df785bc4c46d" width="250"/>
+
+  <img src="https://github.com/user-attachments/assets/ea7a065b-eaa9-47c7-9cfa-d3cf25683a18" alt="d1-dark" width="250" />
+</p> </details>
+
+<details>
+
+<summary> 📱 Mobile / Mobil </summary>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/d426c499-863d-4294-9797-b7dbb5cb0a69" alt="m2-light" width="250" />
+
+  <img src="https://github.com/user-attachments/assets/8839ece2-9d27-49c4-adbd-fb84b6536466" alt="m2-dark" width="250" />
+
+  <img src="https://github.com/user-attachments/assets/19a29f8c-d758-42f7-9abc-37908805fda0" alt="m1-light" width="250" />
+
+  <img src="https://github.com/user-attachments/assets/d684c9c8-9a87-4cf6-b401-ad59d96f3d43" alt="m1-dark" width="250" />
+</p>
+
+:framed_picture: Mobile Full Screen / Mobil Tam Ekran
+
+<img src="https://github.com/user-attachments/assets/c8f67004-3bc6-4a58-8539-2af6481c1403" alt="fullscreen-light" width="250" />
+
+<img src="https://github.com/user-attachments/assets/027eae6b-6dd5-4dfd-a472-2e4e46772550" alt="fullscreen-dark" width="250" />
+
+
+</details>
+
+
+
+</details>
+
  </details>
 
 <details>
