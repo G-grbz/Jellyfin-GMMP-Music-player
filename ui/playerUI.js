@@ -2,11 +2,11 @@ import { createPlaylistModal, togglePlaylistModal } from "./playlistModal.js";
 import { musicPlayerState, loadUserSettings, saveUserSettings } from "../core/state.js";
 import { getConfig } from "../core/configLoader.js";
 import { togglePlayPause, playPrevious, playNext, playTrack } from "../player/playback.js";
-import { updateProgress, setupProgressControls } from "../player/progress.js";
+import { setupProgressControls } from "../player/progress.js";
 import { toggleLyrics } from "../lyrics/lyrics.js";
 import { toggleRepeatMode, toggleShuffle, toggleMute, toggleRemoveOnPlayMode } from "./controls.js";
 import { refreshPlaylist } from "../core/playlist.js";
-import { initSettings, updateConfig } from '../core/settings.js';
+import { initSettings, isLocalStorageAvailable, updateConfig } from '../core/settings.js';
 import { showJellyfinPlaylistsModal } from '../core/jellyfinPlaylists.js';
 import { togglePlayerVisibility } from '../utils/mainIndex.js';
 import { readID3Tags, arrayBufferToBase64 } from "../lyrics/id3Reader.js";
@@ -15,7 +15,7 @@ import { showGenreFilterModal } from "./genreFilterModal.js";
 import { showTopTracksModal } from "./topModal.js";
 import { getAuthToken } from "../core/auth.js";
 import { showNotification } from "./notification.js";
-import { loadCSS } from "../main.js";
+import { loadCSS, isMobileDevice } from "../main.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "/web/GMMP/src/images/defaultArt.png";
@@ -38,6 +38,10 @@ export function createModernPlayerUI() {
     ariaLabel: "Music Player",
     ariaHidden: "true"
   });
+
+  if (isMobileDevice()) {
+    player.classList.add('mobile-device');
+  }
 
   const bgLayer = document.createElement("div");
   bgLayer.className = "player-bg-layer";
@@ -68,12 +72,6 @@ export function createModernPlayerUI() {
         iconClass: config.playerTheme === 'light' ? "fas fa-moon" : "fas fa-sun",
         title: config.playerTheme === 'light' ? config.languageLabels.darkTheme || 'Karanlık Tema' : config.languageLabels.lightTheme || 'Aydınlık Tema',
         onClick: toggleTheme
-    },
-    {
-        className: "style-toggle-btn",
-        iconClass: config.playerStyle === 'player' ? "fas fa-arrows-alt-h" : "fas fa-arrows-alt-v",
-        title: config.playerStyle === 'player' ? config.languageLabels.dikeyStil || 'Dikey Stil' : config.languageLabels.yatayStil || 'Yatay Stil',
-        onClick: togglePlayerStyle
     },
     { className: "playlist-btn", iconClass: "fas fa-list", title: config.languageLabels.playlist, onClick: togglePlaylistModal },
     { className: "jplaylist-btn", iconClass: "fas fa-list-music", title: config.languageLabels.jellyfinPlaylists || "Jellyfin Oynatma Listesi", onClick: showJellyfinPlaylistsModal },
@@ -258,7 +256,25 @@ setTimeout(() => {
   const controls = document.createElement("div");
   controls.className = "player-controls";
 
-  const controlElements = [prevBtn, playPauseBtn, nextBtn, repeatBtn, shuffleBtn, removeOnPlayBtn, lyricsBtn, refreshBtn, genreFilterBtn, topTracksBtn, volumeBtn];
+  const controlElements = [
+    prevBtn, playPauseBtn, nextBtn, repeatBtn, shuffleBtn,
+    removeOnPlayBtn, lyricsBtn, refreshBtn, genreFilterBtn,
+    topTracksBtn, volumeBtn, createButton({
+        className: "fullscreen-btn",
+        iconClass: "fa-solid fa-maximize",
+        title: config.languageLabels.fullscreen || "Tam Ekran",
+        onClick: toggleFullscreenMode
+    }),
+    createButton({
+        className: "style-toggle-btn",
+        iconClass: "fa-solid fa-up-down",
+        title: config.playerStyle === 'player' ? config.languageLabels.dikeyStil || 'Dikey Stil' : config.languageLabels.yatayStil || 'Yatay Stil',
+        onClick: togglePlayerStyle
+    }),
+];
+
+window.addEventListener('load', initializeFullscreen);
+document.addEventListener('DOMContentLoaded', initializeFullscreen);
 
   controlElements.forEach(btn => controls.appendChild(btn));
   controls.appendChild(volumeSlider);
@@ -329,6 +345,8 @@ setTimeout(() => {
   loadUserSettings();
   setupArtistClickHandler();
   updatePlayerBackground();
+  initializeFullscreen();
+  initializePlayerStyle();
 
   return { player, albumArt, title: titleContainer, artist, progressBar, progress, playPauseBtn, progressContainer, currentTimeEl, durationEl, volumeSlider, lyricsContainer, lyricsBtn };
 }
@@ -711,7 +729,8 @@ function toggleTheme() {
 function togglePlayerStyle() {
     const config = getConfig();
     const newStyle = config.playerStyle === 'player' ? 'newplayer' : 'player';
-    const iconName = newStyle === 'player' ? 'arrows-alt-v' : 'arrows-alt-h';
+    const iconName = newStyle === 'player' ? 'up-down' : 'left-right';
+    const notifcationName = newStyle === 'player' ? 'left-right' : 'up-down';
     const updatedConfig = {
         ...config,
         playerStyle: newStyle
@@ -729,7 +748,7 @@ function togglePlayerStyle() {
 
     loadCSS();
     showNotification(
-        `<i class="fas fa-${iconName}"></i> ${
+        `<i class="fas fa-${notifcationName}"></i> ${
             newStyle === 'player'
                 ? config.languageLabels.yatayStilEnabled || 'Yatay stil etkin'
                 : config.languageLabels.dikeyStilEnabled || 'Dikey stil etkin'
@@ -793,4 +812,84 @@ export async function updateAlbumArt(artUrl) {
     };
     img.src = artUrl || DEFAULT_ARTWORK;
   });
+}
+
+function toggleFullscreenMode() {
+    const config = getConfig();
+    const newMode = !config.fullscreenMode;
+    localStorage.setItem('fullscreenMode', newMode);
+
+    const updatedConfig = {
+        ...config,
+        fullscreenMode: newMode
+    };
+
+    updateConfig(updatedConfig);
+    loadCSS();
+
+    const player = document.getElementById('modern-music-player');
+    if (player) {
+        if (newMode) {
+            player.classList.add('fullscreen-mode');
+            document.body.style.overflow = 'hidden';
+        } else {
+            player.classList.remove('fullscreen-mode');
+            document.body.style.overflow = '';
+        }
+    }
+
+    const fullscreenBtn = document.querySelector('.fullscreen-btn i');
+    if (fullscreenBtn) {
+        fullscreenBtn.className = newMode
+            ? 'fa-solid fa-minimize'
+            : 'fa-solid fa-maximize';
+    }
+
+    showNotification(
+        `<i class="fa-solid fa-${newMode ? 'maximize' : 'minimize'}"></i> ${
+            newMode
+                ? config.languageLabels.fullscreenEnabled || 'Tam ekran modu etkin'
+                : config.languageLabels.fullscreenDisabled || 'Tam ekran modu devre dışı'
+        }`,
+        2000,
+        'info'
+    );
+}
+
+function initializePlayerStyle() {
+    const config = getConfig();
+    const player = document.getElementById('modern-music-player');
+    const styleToggleBtn = document.querySelector('.style-toggle-btn i');
+
+    if (!player || !styleToggleBtn) return;
+
+    if (config.playerStyle === 'newplayer') {
+        player.classList.add('style-toggle');
+        styleToggleBtn.className = 'fas fa-left-right';
+        styleToggleBtn.title = config.languageLabels.dikeyStil || 'Dikey Stil';
+    } else {
+        player.classList.remove('style-toggle');
+        styleToggleBtn.className = 'fas fa-up-down';
+        styleToggleBtn.title = config.languageLabels.yatayStil || 'Yatay Stil';
+    }
+}
+
+function initializeFullscreen() {
+    const config = getConfig();
+    const player = document.getElementById('modern-music-player');
+    const fullscreenBtn = document.querySelector('.fullscreen-btn i');
+
+    if (config.fullscreenMode) {
+        player?.classList.add('fullscreen-mode');
+        document.body.style.overflow = 'hidden';
+        if (fullscreenBtn) {
+            fullscreenBtn.className = 'fa-solid fa-minimize';
+        }
+    } else {
+        player?.classList.remove('fullscreen-mode');
+        document.body.style.overflow = '';
+        if (fullscreenBtn) {
+            fullscreenBtn.className = 'fa-solid fa-maximize';
+        }
+    }
 }

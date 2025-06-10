@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Default Language",
+  fullscreen: "Full screen",
+  fullscreenEnabled: "Full screen mode enabled",
+  fullscreenDisabled: "Full screen mode disabled",
   useAlbumArtAsBackground: "Use album art as background",
   albumArtBackgroundBlur: "Background blur",
   albumArtBackgroundOpacity: "Background opacity",

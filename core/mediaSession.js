@@ -1,5 +1,6 @@
 import { musicPlayerState } from "./state.js";
 import { togglePlayPause, playPrevious, playNext } from "../player/playback.js";
+import { getServerAddress } from "./configLoader.js";
 
 const DEFAULT_ARTWORK_URL = '/web/GMMP/src/images/defaultArt.png';
 
@@ -30,6 +31,7 @@ export function initMediaSession() {
       }
     });
 
+    setupHeadphoneControls();
     updatePlaybackState();
 
   } catch (error) {
@@ -147,15 +149,16 @@ export async function updateMediaMetadata(track) {
     updatePlaybackState();
 
   } catch (error) {
-    console.error('[MediaSession] Metadata update failed:', error);
+    console.error('[MediaSession] Metadata güncelleme başarısız:', error);
   }
 }
 
 async function getTrackArtwork(track) {
   if (track?.AlbumPrimaryImageTag || track?.PrimaryImageTag) {
     const imageId = track.AlbumId || track.Id;
+    const serverAddress = getServerAddress();
     return [{
-      src: `/Items/${imageId}/Images/Primary?quality=90&tag=${track.AlbumPrimaryImageTag || track.PrimaryImageTag}`,
+      src: `${serverAddress}/Items/${imageId}/Images/Primary?quality=90&tag=${track.AlbumPrimaryImageTag || track.PrimaryImageTag}`,
       sizes: '512x512',
       type: 'image/jpeg'
     }];

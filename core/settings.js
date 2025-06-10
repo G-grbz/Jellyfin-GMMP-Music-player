@@ -1308,7 +1308,7 @@ function createAboutPanel(labels) {
     panel.id = 'about-panel';
     panel.className = 'settings-panel';
 
-    const section = createSection('JELLYFIN MEDIA SLIDER');
+    const section = createSection('GMMP');
 
     const info = document.createElement('div');
     info.className = 'ggrbz-info';

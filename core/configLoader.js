@@ -9,6 +9,7 @@ const defaultConfig = {
   gruplimit: 200,
   id3limit: 10,
   historylimit: 10,
+  fullscreenMode: 'false',
   playerTheme: 'dark',
   playerStyle: 'player',
   dateLocale: 'tr-TR',
@@ -41,6 +42,7 @@ export function getConfig() {
     maxExcludeIdsForUri: parseInt(localStorage.getItem('maxExcludeIdsForUri'), 10) || defaultConfig.maxExcludeIdsForUri,
     notificationsEnabled: localStorage.getItem('notificationsEnabled') !== 'false',
     useAlbumArtAsBackground: localStorage.getItem('useAlbumArtAsBackground') === 'true',
+    fullscreenMode: localStorage.getItem('fullscreenMode') === 'true' ? true : false,
     albumArtBackgroundBlur: (() => {
       const v = localStorage.getItem('albumArtBackgroundBlur');
       return v !== null ? parseInt(v, 10) : 10;
@@ -121,6 +123,10 @@ export function updateConfig(newConfig) {
     localStorage.setItem('albumArtBackgroundOpacity', newConfig.albumArtBackgroundOpacity);
   }
 
+  if (newConfig.fullscreenMode !== undefined) {
+    localStorage.setItem('fullscreenMode', newConfig.fullscreenMode);
+  }
+
   const configUpdatedEvent = new CustomEvent('configUpdated', {
     detail: getConfig()
   });
@@ -132,3 +138,12 @@ window.addEventListener('DOMContentLoaded', () => {
     console.log('Config güncellendi:', e.detail);
   });
 });
+
+
+export function getServerAddress() {
+  return (
+    window.serverConfig?.address ||
+    sessionStorage.getItem('serverAddress') ||
+    ''
+  );
+}

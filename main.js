@@ -29,17 +29,26 @@ function waitForElement(selector, timeout = 5000) {
 }
 
 export function loadCSS() {
-  const config = getConfig();
-  const theme = config.playerTheme || 'dark';
-  const playerStyle = config.playerStyle || 'player';
+  const { playerTheme: theme = 'dark', playerStyle = 'player', fullscreenMode = false } = getConfig();
+  document.querySelectorAll('link[data-jellyfin-player-css]').forEach(l => l.remove());
 
-  const existingLinks = document.querySelectorAll('link[href*="player-"], link[href*="newplayer-"]');
-  existingLinks.forEach(link => link.remove());
+  const baseLink = document.createElement('link');
+  baseLink.rel = 'stylesheet';
+  baseLink.setAttribute('data-jellyfin-player-css', 'base');
+  baseLink.href = `./GMMP/src/${playerStyle}-${theme}.css`;
+  document.head.appendChild(baseLink);
 
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = `./GMMP/src/${playerStyle}-${theme}.css`;
-  document.head.appendChild(link);
+  if (fullscreenMode && isMobileDevice()) {
+    const fsLink = document.createElement('link');
+    fsLink.rel = 'stylesheet';
+    fsLink.setAttribute('data-jellyfin-player-css', 'fullscreen');
+    fsLink.href = `./GMMP/src/fullscreen.css`;
+    document.head.appendChild(fsLink);
+  }
+}
+
+export function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 function createPlayerButton() {

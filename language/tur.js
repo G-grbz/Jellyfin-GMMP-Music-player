@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Varsayılan Dil",
+  fullscreen: "Tam Ekran",
+  fullscreenEnabled: "Tam ekran modu etkin",
+  fullscreenDisabled: "Tam ekran modu devre dışı",
   useAlbumArtAsBackground: "Albüm kapağını arka plan yap",
   albumArtBackgroundBlur: "Arka plan bulanıklığı",
   albumArtBackgroundOpacity: "Arka plan şeffaflığı",

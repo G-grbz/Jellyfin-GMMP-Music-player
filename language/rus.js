@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Язык по умолчанию",
+  fullscreen: "Полноэкранный",
+  fullscreenEnabled: "Включен полноэкранный режим",
+  fullscreenDisabled: "Полноэкранный режим отключен",
   useAlbumArtAsBackground: "Использовать обложку альбома как фон",
   albumArtBackgroundBlur: "Размытие фона",
   albumArtBackgroundOpacity: "Прозрачность фона",

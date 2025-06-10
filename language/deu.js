@@ -1,5 +1,8 @@
 export const languageLabels = {
   defaultLanguage: "Standardsprache",
+  fullscreen: "Vollbild",
+  fullscreenEnabled: "Vollbildmodus aktiviert",
+  fullscreenDisabled: "Vollbildmodus deaktiviert",
   useAlbumArtAsBackground: "Albumcover als Hintergrund verwenden",
   albumArtBackgroundBlur: "Hintergrundunschärfe",
   albumArtBackgroundOpacity: "Hintergrundtransparenz",
