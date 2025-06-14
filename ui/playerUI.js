@@ -47,21 +47,39 @@ export function createModernPlayerUI() {
   bgLayer.className = "player-bg-layer";
   player.appendChild(bgLayer);
 
-  const nextTracksContainer = document.createElement("div");
-  nextTracksContainer.className = "next-tracks-container";
+const { container: nextTracksContainer, name: nextTracksName, list: nextTracksList } = createNextTracksUI();
 
-  const nextTracksName = document.createElement("div");
-  nextTracksName.className = "next-tracks-name hidden";
-  nextTracksName.innerText = config.languageLabels.sirada || "Sıradaki Şarkı";
+if (config.nextTracksSource === 'playlist') {
+  nextTracksName.textContent = musicPlayerState.userSettings.shuffle
+    ? config.languageLabels.rastgele || "Rastgele"
+    : config.languageLabels.sirada || "Sıradakiler";
+} else {
+  nextTracksName.textContent = getSourceLabel(config.nextTracksSource);
+  nextTracksName.title = config.languageLabels.changeSource || "Kaynağı değiştirmek için tıklayın";
+  nextTracksName.onclick = async (e) => {
+    e.stopPropagation();
+    const cfg = getConfig();
+    const nextSource = getNextTrackSource(cfg.nextTracksSource);
+    const updatedConfig = { ...cfg, nextTracksSource: nextSource.value };
+    updateConfig(updatedConfig);
 
-  const nextTracksList = document.createElement("div");
-  nextTracksList.className = "next-tracks-list";
+    showNotification(
+      `<i class="fas fa-music"></i> ${nextSource.label}`,
+      2000,
+      'info'
+    );
 
-  nextTracksContainer.append(nextTracksName, nextTracksList);
+    if (nextSource.value === 'playlist') {
+      await updateNextTracks();
+    } else {
+      await showTopTracksInMainView(nextSource.value);
+    }
+  };
+}
 
-  setTimeout(() => {
-    nextTracksName.classList.remove('hidden');
-  }, 4000);
+setTimeout(() => {
+  nextTracksName.classList.remove('hidden');
+}, 4000);
 
   const topControlsContainer = document.createElement("div");
   topControlsContainer.className = "top-controls-container";
@@ -320,25 +338,26 @@ document.addEventListener('DOMContentLoaded', initializeFullscreen);
   createPlaylistModal();
 
   Object.assign(musicPlayerState, {
-    modernPlayer: player,
-    albumArtEl: albumArt,
-    modernTitleEl: titleText,
-    modernArtistEl: artist,
-    progressBar,
-    favoriteBtn,
-    progress,
-    progressHandle,
-    playPauseBtn,
-    progressContainer,
-    currentTimeEl,
-    durationEl,
-    lyricsContainer,
-    lyricsBtn,
-    volumeBtn,
-    volumeSlider,
-    nextTracksContainer,
-    nextTracksList,
-  });
+  modernPlayer: player,
+  albumArtEl: albumArt,
+  modernTitleEl: titleText,
+  modernArtistEl: artist,
+  progressBar,
+  favoriteBtn,
+  progress,
+  progressHandle,
+  playPauseBtn,
+  progressContainer,
+  currentTimeEl,
+  durationEl,
+  lyricsContainer,
+  lyricsBtn,
+  volumeBtn,
+  volumeSlider,
+  nextTracksContainer,
+  nextTracksName,
+  nextTracksList,
+});
 
   musicPlayerState.audio.volume = musicPlayerState.userSettings.volume || 0.7;
   setupProgressControls();
@@ -352,22 +371,55 @@ document.addEventListener('DOMContentLoaded', initializeFullscreen);
 }
 
 export async function updateNextTracks() {
+  const config = getConfig();
   const {
     playlist,
     currentIndex,
     userSettings,
     nextTracksContainer,
-    id3ImageCache = {},
-    effectivePlaylist
+    id3ImageCache = {}
   } = musicPlayerState;
 
   if (!nextTracksContainer || !playlist) return;
+
+  if (musicPlayerState.nextTracksObserver) {
+    musicPlayerState.nextTracksObserver.disconnect();
+  }
+
+  const uiElements = createNextTracksUI();
   nextTracksContainer.innerHTML = '';
 
-  const playlistLength = playlist.length;
-  if (playlistLength <= 1) {
-    return;
+  uiElements.name.onclick = async (e) => {
+    e.stopPropagation();
+    const cfg = getConfig();
+    const nextSource = getNextTrackSource(cfg.nextTracksSource);
+    const updatedConfig = { ...cfg, nextTracksSource: nextSource.value };
+    updateConfig(updatedConfig);
+
+    showNotification(
+      `<i class="fas fa-music"></i> ${nextSource.label}`,
+      2000,
+      'info'
+    );
+
+    if (nextSource.value === 'playlist') {
+      await updateNextTracks();
+    } else {
+      await showTopTracksInMainView(nextSource.value);
+    }
+  };
+
+  if (config.nextTracksSource === 'playlist') {
+    uiElements.name.style.cursor = 'pointer';
+    uiElements.name.textContent = userSettings.shuffle
+      ? config.languageLabels.rastgele || "Rastgele"
+      : config.languageLabels.sirada || "Sıradakiler";
+  } else {
+    return showTopTracksInMainView(config.nextTracksSource);
   }
+
+  const playlistLength = playlist.length;
+  if (playlistLength <= 1) return;
 
   if (!musicPlayerState.playedHistory ||
       musicPlayerState.lastShuffleState !== userSettings.shuffle ||
@@ -377,224 +429,70 @@ export async function updateNextTracks() {
     musicPlayerState.lastCurrentIndex = currentIndex;
   }
 
-  const nextTracksList = document.createElement('div');
-  nextTracksList.className = 'next-tracks-list';
-  musicPlayerState.nextTracksList = nextTracksList;
-
-  const nextTracksName = document.createElement('div');
-  nextTracksName.className = 'next-tracks-name hidden';
-  nextTracksName.textContent = userSettings.shuffle
-    ? config.languageLabels.rastgele || "Rastgele"
-    : config.languageLabels.sirada || "Sıradakiler";
-
   const maxNextTracks = Math.min(
     config.nextTrack,
     (config.muziklimit ? config.muziklimit - 1 : config.nextTrack)
   );
 
-  const nextIndices = [];
+  const nextIndices = userSettings.shuffle
+    ? getShuffledIndices(playlist, currentIndex, maxNextTracks)
+    : getSequentialIndices(playlist, currentIndex, maxNextTracks);
 
-  if (userSettings.shuffle) {
-    const playedSet = new Set(musicPlayerState.playedHistory);
-    if (!playedSet.has(currentIndex)) {
-      playedSet.add(currentIndex);
-    }
-
-    if (playedSet.size >= playlistLength) {
-      playedSet.clear();
-      playedSet.add(currentIndex);
-    }
-
-    const selectedSet = new Set();
-    while (selectedSet.size < maxNextTracks && selectedSet.size < playlistLength - 1) {
-      const randIdx = Math.floor(Math.random() * playlistLength);
-      if (randIdx !== currentIndex && !playedSet.has(randIdx)) {
-        selectedSet.add(randIdx);
-      }
-    }
-
-    nextIndices.push(...selectedSet);
-
-    if (nextIndices.length < maxNextTracks) {
-      for (let i = 0; i < playlistLength && nextIndices.length < maxNextTracks; i++) {
-        if (i !== currentIndex && !nextIndices.includes(i)) {
-          nextIndices.push(i);
-        }
-      }
-    }
-
-    musicPlayerState.playedHistory.push(...nextIndices);
-    musicPlayerState.playedHistory = Array.from(new Set(musicPlayerState.playedHistory));
-    if (musicPlayerState.playedHistory.length > playlistLength * 2) {
-      musicPlayerState.playedHistory = musicPlayerState.playedHistory.slice(-playlistLength);
-    }
-
-  } else {
-    let idx = currentIndex;
-    let attempts = 0;
-    const maxAttempts = playlistLength * 2;
-
-    while (nextIndices.length < maxNextTracks && attempts < maxAttempts) {
-      idx = (idx + 1) % playlistLength;
-      if (!musicPlayerState.playedHistory.includes(idx)) {
-        nextIndices.push(idx);
-        musicPlayerState.playedHistory.push(idx);
-      }
-      attempts++;
-      if (attempts >= playlistLength && nextIndices.length === 0) {
-        musicPlayerState.playedHistory = [currentIndex];
-        idx = currentIndex;
-        attempts = 0;
-      }
-    }
-  }
-
-  musicPlayerState.lastCurrentIndex = currentIndex;
-
-  const trackElements = nextIndices.map((nextIndex) => {
+  const trackElements = nextIndices.map(nextIndex => {
     const track = playlist[nextIndex];
     if (!track) return null;
 
-    const trackElement = document.createElement('div');
-    trackElement.className = 'next-track-item hidden';
-    trackElement.dataset.trackId = track.Id;
-    trackElement.dataset.trackIndex = nextIndex;
-    trackElement.dataset.loaded = "false";
-    trackElement.title = track.Name || config.languageLabels.unknownTrack;
+    const { trackElement, coverElement } = createTrackElement(
+      track,
+      nextIndex,
+      () => playTrack(nextIndex)
+    );
 
-    const coverElement = document.createElement('div');
-    coverElement.className = 'next-track-cover';
-    coverElement.style.backgroundImage = DEFAULT_ARTWORK_CSS;
-    coverElement.onclick = () => playTrack(nextIndex);
-
-    const titleElement = document.createElement('div');
-    titleElement.className = 'next-track-title';
-    titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
-    titleElement.onclick = () => playTrack(nextIndex);
-
-    trackElement.append(coverElement, titleElement);
-    nextTracksList.appendChild(trackElement);
-
-    return { nextIndex, track, trackElement, coverElement };
+    uiElements.list.appendChild(trackElement);
+    return { track, trackElement, coverElement, index: nextIndex };
   }).filter(Boolean);
 
-  const MAX_CONCURRENT_READS = config.id3limit;
-  let loadedCount = 0;
-
-  const loadNextBatch = () => {
-    const batch = trackElements.slice(loadedCount, loadedCount + MAX_CONCURRENT_READS);
-    batch.forEach(({ trackElement }) => {
-      trackElement.classList.remove('hidden');
-      trackElement.classList.add('visible');
-      observer.observe(trackElement);
-    });
-    loadedCount += batch.length;
-
-    if (loadedCount >= trackElements.length) {
-      sentinelObserver.unobserve(sentinel);
-    }
-  };
-
-  const observer = new IntersectionObserver(async (entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-
-      const el = entry.target;
-      if (el.dataset.loaded === "true") continue;
-
-      const nextIndex = parseInt(el.dataset.trackIndex, 10);
-      const { track, coverElement } = trackElements.find(te => te.nextIndex === nextIndex) || {};
-      if (!track || !coverElement) continue;
-
-      try {
-        const imageUri = await getTrackImage(track, id3ImageCache);
-        if (imageUri) {
-          coverElement.style.backgroundImage = `url('${imageUri}')`;
-        }
-        el.dataset.loaded = "true";
-        observer.unobserve(el);
-      } catch (err) {
-        console.error(`Track #${nextIndex} resmi yüklenirken hata:`, err);
-      }
-    }
-  }, {
-    root: nextTracksList,
+  const observer = new IntersectionObserver(handleIntersection, {
+    root: uiElements.wrapper,
+    rootMargin: '100px',
     threshold: 0.1
   });
 
-  const sentinel = document.createElement('div');
-  sentinel.className = 'next-track-sentinel';
-  nextTracksList.appendChild(sentinel);
+  musicPlayerState.nextTracksObserver = observer;
 
-  const sentinelObserver = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) {
-      loadNextBatch();
-    }
-  }, {
-    root: nextTracksList,
-    threshold: 1.0
-  });
+  setupImageLoading(trackElements, id3ImageCache, observer);
 
-  sentinelObserver.observe(sentinel);
-  loadNextBatch();
+  setupScrollControls(
+    trackElements,
+    uiElements.list,
+    uiElements.scrollLeft,
+    uiElements.scrollRight
+  );
 
-  trackElements.forEach(({ trackElement }, idx) => {
-    setTimeout(() => {
-      trackElement.classList.remove('hidden');
-      trackElement.classList.add('visible');
-      observer.observe(trackElement);
-    }, (idx + 1) * 50);
-  });
+  const scrollControlsContainer = document.createElement('div');
+  scrollControlsContainer.className = 'next-tracks-scroll-controls';
+  scrollControlsContainer.append(uiElements.scrollLeft, uiElements.scrollRight);
 
-  const scrollLeftBtn = document.createElement('div');
-  scrollLeftBtn.className = 'track-scroll-btn track-scroll-left';
-  const leftIcon = document.createElement('i');
-  leftIcon.className = 'fas fa-chevron-left';
-  scrollLeftBtn.appendChild(leftIcon);
-
-  const scrollRightBtn = document.createElement('div');
-  scrollRightBtn.className = 'track-scroll-btn track-scroll-right';
-  const rightIcon = document.createElement('i');
-  rightIcon.className = 'fas fa-chevron-right';
-  scrollRightBtn.appendChild(rightIcon);
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'next-tracks-wrapper';
-  wrapper.appendChild(nextTracksList);
-
-  let scrollIndex = 0;
-  const visibleCount = 4;
-  const itemWidth = 75;
-
-  const updateScroll = () => {
-    nextTracksList.style.transform = `translateX(-${scrollIndex * itemWidth}px)`;
-  };
-
-  scrollLeftBtn.onclick = () => {
-    scrollIndex = Math.max(0, scrollIndex - visibleCount);
-    updateScroll();
-  };
-  scrollRightBtn.onclick = () => {
-    scrollIndex = Math.min(trackElements.length - visibleCount, scrollIndex + visibleCount);
-    updateScroll();
-  };
-
-  const addedCount = trackElements.length;
-  if (addedCount > visibleCount) {
-    nextTracksContainer.append(nextTracksName, scrollLeftBtn, wrapper, scrollRightBtn);
+  if (trackElements.length > 4) {
+    nextTracksContainer.append(
+      uiElements.name,
+      scrollControlsContainer,
+      uiElements.wrapper
+    );
   } else {
-    nextTracksContainer.append(wrapper, nextTracksName);
+    nextTracksContainer.append(uiElements.wrapper, uiElements.name);
   }
 
-  if (addedCount > 0) {
-    setTimeout(() => {
-      nextTracksName.classList.remove('hidden');
-      nextTracksName.classList.add('visible');
-    }, (addedCount + 1) * 50);
-  }
+  setTimeout(() => {
+    uiElements.name.classList.remove('hidden');
+    uiElements.name.classList.add('visible');
+  }, 100);
 
+  musicPlayerState.nextTracksList = uiElements.list;
+  musicPlayerState.nextTracksName = uiElements.name;
   musicPlayerState.id3ImageCache = id3ImageCache;
 }
+
 
 async function getTrackImage(track, cache) {
   const trackId = track.Id;
@@ -892,4 +790,400 @@ function initializeFullscreen() {
             fullscreenBtn.className = 'fa-solid fa-maximize';
         }
     }
+}
+
+async function showTopTracksInMainView(tab) {
+  if (tab === 'playlist') {
+    await updateNextTracks();
+    return;
+  }
+
+  const config = getConfig();
+  const { nextTracksContainer, id3ImageCache = {} } = musicPlayerState;
+
+  try {
+    const token = getAuthToken();
+    const userId = await window.ApiClient.getCurrentUserId();
+    const { apiUrl, trackListName } = getApiUrlForTab(tab, userId);
+
+    const response = await fetch(apiUrl, {
+      headers: { "X-Emby-Token": token }
+    });
+
+    if (!response.ok) throw new Error('Şarkılar yüklenemedi');
+
+    const data = await response.json();
+    let tracks = data.Items || [];
+    tracks = tracks.filter((track, idx, arr) =>
+      arr.findIndex(t => isSameTrack(t, track)) === idx
+    );
+
+    if (tracks.length === 0) {
+      nextTracksContainer.innerHTML = `<div class="no-tracks">${
+        config.languageLabels.noTracks || 'Şarkı bulunamadı'
+      }</div>`;
+      return;
+    }
+
+    const uiElements = createNextTracksUI();
+    nextTracksContainer.innerHTML = '';
+
+    uiElements.name.textContent = getSourceLabel(tab);
+    uiElements.name.style.cursor = 'pointer';
+    uiElements.name.onclick = async (e) => {
+      e.stopPropagation();
+      const cfg = getConfig();
+      const nextSource = getNextTrackSource(cfg.nextTracksSource);
+      const updatedConfig = { ...cfg, nextTracksSource: nextSource.value };
+      updateConfig(updatedConfig);
+
+      showNotification(
+        `<i class="fas fa-music"></i> ${nextSource.label}`,
+        2000,
+        'info'
+      );
+
+      if (nextSource.value === 'playlist') {
+        await updateNextTracks();
+      } else {
+        await showTopTracksInMainView(nextSource.value);
+      }
+    };
+
+    const trackElements = tracks.map((track, index) => {
+      const { trackElement, coverElement } = createTrackElement(
+        track,
+        index,
+        () => addAndPlayTrack(track)
+      );
+
+      loadInitialBatch([{track, trackElement, coverElement, index}], id3ImageCache)
+        .then(() => {})
+        .catch(err => console.error('Görsel yükleme hatası:', err));
+
+      uiElements.list.appendChild(trackElement);
+      return { track, trackElement, coverElement, index };
+    });
+
+    setupScrollControls(
+      trackElements,
+      uiElements.list,
+      uiElements.scrollLeft,
+      uiElements.scrollRight
+    );
+
+    const scrollControlsContainer = document.createElement('div');
+    scrollControlsContainer.className = 'next-tracks-scroll-controls';
+    scrollControlsContainer.append(uiElements.scrollLeft, uiElements.scrollRight);
+
+    if (trackElements.length > 4) {
+      nextTracksContainer.append(
+        uiElements.name,
+        scrollControlsContainer,
+        uiElements.wrapper
+      );
+    } else {
+      nextTracksContainer.append(uiElements.wrapper, uiElements.name);
+    }
+
+    setTimeout(() => {
+      uiElements.name.classList.remove('hidden');
+      uiElements.name.classList.add('visible');
+    }, 100);
+
+  } catch (error) {
+    console.error('Sıradaki şarkılar yüklenirken hata:', error);
+    nextTracksContainer.innerHTML = `<div class="error-message">${
+      config.languageLabels.loadError || 'Yüklenirken hata oluştu'
+    }</div>`;
+  }
+}
+
+function isSameTrack(a, b) {
+    if (a.Id === b.Id) return true;
+    if (a.Name !== b.Name) return false;
+    const artistsA = (a.Artists || []).map(x => x.Name).sort().join(',');
+    const artistsB = (b.Artists || []).map(x => x.Name).sort().join(',');
+    return artistsA === artistsB;
+}
+
+function addAndPlayTrack(track) {
+    const playlist = musicPlayerState.playlist;
+    const existingIndex = playlist.findIndex(t => isSameTrack(t, track));
+
+    if (existingIndex >= 0) {
+        musicPlayerState.currentIndex = existingIndex;
+    } else {
+        playlist.push(track);
+        musicPlayerState.originalPlaylist.push(track);
+        musicPlayerState.currentIndex = playlist.length - 1;
+    }
+    playTrack(musicPlayerState.currentIndex);
+}
+
+function createNextTracksUI() {
+  const nextTracksContainer = document.createElement('div');
+  nextTracksContainer.className = 'next-tracks-container';
+
+  const nextTracksName = document.createElement('div');
+  nextTracksName.className = 'next-tracks-name hidden';
+  nextTracksName.style.cursor = 'pointer';
+
+  const nextTracksList = document.createElement('div');
+  nextTracksList.className = 'next-tracks-list';
+
+  const scrollLeftBtn = document.createElement('div');
+  scrollLeftBtn.className = 'track-scroll-btn track-scroll-left';
+  scrollLeftBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+
+  const scrollRightBtn = document.createElement('div');
+  scrollRightBtn.className = 'track-scroll-btn track-scroll-right';
+  scrollRightBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'next-tracks-wrapper';
+  wrapper.appendChild(nextTracksList);
+
+  return {
+    container: nextTracksContainer,
+    name: nextTracksName,
+    list: nextTracksList,
+    scrollLeft: scrollLeftBtn,
+    scrollRight: scrollRightBtn,
+    wrapper
+  };
+}
+
+function setupScrollControls(trackElements, nextTracksList, scrollLeftBtn, scrollRightBtn) {
+  let scrollIndex = 0;
+  const visibleCount = 4;
+  const itemWidth = 75;
+
+  const updateScroll = () => {
+    nextTracksList.style.transform = `translateX(-${scrollIndex * itemWidth}px)`;
+  };
+
+  scrollLeftBtn.onclick = () => {
+    scrollIndex = Math.max(0, scrollIndex - visibleCount);
+    updateScroll();
+  };
+
+  scrollRightBtn.onclick = () => {
+    scrollIndex = Math.min(trackElements.length - visibleCount, scrollIndex + visibleCount);
+    updateScroll();
+  };
+}
+
+function createTrackElement(track, index, onClickHandler) {
+  const config = getConfig();
+  const trackElement = document.createElement('div');
+  trackElement.className = 'next-track-item hidden';
+  trackElement.dataset.trackId = track.Id;
+  trackElement.dataset.trackIndex = index;
+  trackElement.dataset.loaded = "false";
+  trackElement.title = track.Name || config.languageLabels.unknownTrack;
+
+  const coverElement = document.createElement('div');
+  coverElement.className = 'next-track-cover';
+  coverElement.style.backgroundImage = DEFAULT_ARTWORK_CSS;
+  coverElement.onclick = () => onClickHandler(track, index);
+
+  const titleElement = document.createElement('div');
+  titleElement.className = 'next-track-title';
+  titleElement.textContent = track.Name || config.languageLabels.unknownTrack;
+  titleElement.onclick = () => onClickHandler(track, index);
+
+  trackElement.append(coverElement, titleElement);
+  return { trackElement, coverElement };
+}
+
+function getShuffledIndices(playlist, currentIndex, maxNextTracks) {
+  const playedSet = new Set(musicPlayerState.playedHistory);
+  if (!playedSet.has(currentIndex)) playedSet.add(currentIndex);
+
+  if (playedSet.size >= playlist.length) {
+    playedSet.clear();
+    playedSet.add(currentIndex);
+  }
+
+  const selectedSet = new Set();
+  while (selectedSet.size < maxNextTracks && selectedSet.size < playlist.length - 1) {
+    const randIdx = Math.floor(Math.random() * playlist.length);
+    if (randIdx !== currentIndex && !playedSet.has(randIdx)) {
+      selectedSet.add(randIdx);
+    }
+  }
+
+  const nextIndices = Array.from(selectedSet);
+  if (nextIndices.length < maxNextTracks) {
+    for (let i = 0; i < playlist.length && nextIndices.length < maxNextTracks; i++) {
+      if (i !== currentIndex && !nextIndices.includes(i)) {
+        nextIndices.push(i);
+      }
+    }
+  }
+
+  musicPlayerState.playedHistory.push(...nextIndices);
+  musicPlayerState.playedHistory = Array.from(new Set(musicPlayerState.playedHistory));
+  if (musicPlayerState.playedHistory.length > playlist.length * 2) {
+    musicPlayerState.playedHistory = musicPlayerState.playedHistory.slice(-playlist.length);
+  }
+
+  return nextIndices;
+}
+
+function getSequentialIndices(playlist, currentIndex, maxNextTracks) {
+  let idx = currentIndex;
+  let attempts = 0;
+  const maxAttempts = playlist.length * 2;
+  const nextIndices = [];
+
+  while (nextIndices.length < maxNextTracks && attempts < maxAttempts) {
+    idx = (idx + 1) % playlist.length;
+    if (!musicPlayerState.playedHistory.includes(idx)) {
+      nextIndices.push(idx);
+      musicPlayerState.playedHistory.push(idx);
+    }
+    attempts++;
+    if (attempts >= playlist.length && nextIndices.length === 0) {
+      musicPlayerState.playedHistory = [currentIndex];
+      idx = currentIndex;
+      attempts = 0;
+    }
+  }
+
+  return nextIndices;
+}
+
+function getApiUrlForTab(tab, userId) {
+  const config = getConfig();
+  switch (tab) {
+    case 'top':
+      return {
+        apiUrl: `/Users/${userId}/Items?SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Recursive=true&Limit=${config.topTrack}`,
+        trackListName: config.languageLabels.topTracks || 'En Çok Dinlenenler'
+      };
+    case 'recent':
+      return {
+        apiUrl: `/Users/${userId}/Items?SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Recursive=true&Limit=${config.topTrack}`,
+        trackListName: config.languageLabels.recentTracks || 'Son Dinlenenler'
+      };
+    case 'latest':
+      return {
+        apiUrl: `/Users/${userId}/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Audio&Recursive=true&Limit=${config.topTrack}`,
+        trackListName: config.languageLabels.latestTracks || 'Son Eklenenler'
+      };
+    case 'favorites':
+      return {
+        apiUrl: `/Users/${userId}/Items?Filters=IsFavorite&IncludeItemTypes=Audio&Recursive=true&SortBy=SortName&SortOrder=Ascending&Limit=${config.topTrack}`,
+        trackListName: config.languageLabels.favorites || 'Favorilerim'
+      };
+    default:
+      return {
+        apiUrl: `/Users/${userId}/Items?SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Recursive=true&Limit=${config.nextTrack}`,
+        trackListName: config.languageLabels.topTracks || 'En Çok Dinlenenler'
+      };
+  }
+}
+
+function handleIntersection(entries, observer) {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+
+    const el = entry.target;
+    if (el.dataset.loaded === "true") return;
+
+    const trackId = el.dataset.trackId;
+    const trackElements = Array.from(el.parentElement.children);
+    const trackIndex = trackElements.indexOf(el);
+
+    loadTrackImageForElement(el, trackIndex);
+  });
+}
+
+function getNextTrackSource(currentSource) {
+  const config = getConfig();
+  const sources = [
+    { value: 'top', label: config.languageLabels.topTracks || 'En Çok Dinlenenler' },
+    { value: 'recent', label: config.languageLabels.recentTracks || 'Son Dinlenenler' },
+    { value: 'latest', label: config.languageLabels.latestTracks || 'Son Eklenenler' },
+    { value: 'favorites', label: config.languageLabels.favorites || 'Favorilerim' },
+    { value: 'playlist', label: musicPlayerState.userSettings.shuffle
+        ? config.languageLabels.rastgele || "Rastgele"
+        : config.languageLabels.sirada || "Sıradakiler" }
+  ];
+
+  const currentIndex = sources.findIndex(s => s.value === currentSource);
+  const nextIndex = (currentIndex + 1) % sources.length;
+  return sources[nextIndex];
+}
+
+async function setupImageLoading(trackElements, id3ImageCache, observer) {
+  const initialBatch = trackElements.slice(0, config.id3limit || 4);
+  await loadInitialBatch(initialBatch, id3ImageCache);
+
+  trackElements.slice(config.id3limit || 4).forEach(({ trackElement }) => {
+    trackElement.classList.remove('hidden');
+    observer.observe(trackElement);
+  });
+}
+
+async function loadInitialBatch(trackElements, id3ImageCache) {
+  if (!Array.isArray(trackElements)) {
+    console.error('loadInitialBatch: trackElements bir dizi olmalı', trackElements);
+    return;
+  }
+
+  const chunkSize = config.id3limit || 4;
+  for (let i = 0; i < trackElements.length; i += chunkSize) {
+    const chunk = trackElements.slice(i, i + chunkSize);
+    await Promise.all(chunk.map(async ({ track, trackElement, coverElement }) => {
+      if (!trackElement || !coverElement) return;
+
+      trackElement.classList.remove('hidden');
+      trackElement.classList.add('visible');
+
+      try {
+        const imageUri = await getTrackImage(track, id3ImageCache);
+        if (imageUri) {
+          coverElement.style.backgroundImage = `url('${imageUri}')`;
+        }
+        trackElement.dataset.loaded = "true";
+      } catch (err) {
+        console.error('İlk batch görsel yükleme hatası:', err);
+      }
+    }));
+  }
+}
+
+async function loadTrackImageForElement(trackElement, trackIndex) {
+  const { playlist, id3ImageCache = {} } = musicPlayerState;
+  const track = playlist[trackIndex];
+  if (!track) return;
+
+  try {
+    const imageUri = await getTrackImage(track, id3ImageCache);
+    if (imageUri) {
+      const coverElement = trackElement.querySelector('.next-track-cover');
+      if (coverElement) {
+        coverElement.style.backgroundImage = `url('${imageUri}')`;
+      }
+    }
+    trackElement.dataset.loaded = "true";
+  } catch (err) {
+    console.error(`Track #${trackIndex} resmi yüklenirken hata:`, err);
+  }
+}
+function getSourceLabel(source) {
+    const config = getConfig();
+    const labels = {
+        'top': config.languageLabels.topTracks || "En Çok Dinlenenler",
+        'recent': config.languageLabels.recentTracks || "Son Dinlenenler",
+        'latest': config.languageLabels.latestTracks || "Son Eklenenler",
+        'favorites': config.languageLabels.favorites || "Favorilerim",
+        'playlist': musicPlayerState.userSettings.shuffle
+            ? config.languageLabels.rastgele || "Rastgele"
+            : config.languageLabels.sirada || "Sıradakiler"
+    };
+    return labels[source] || source;
 }

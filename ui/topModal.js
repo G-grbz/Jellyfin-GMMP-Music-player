@@ -597,7 +597,6 @@ function formatDate(date) {
   }
 }
 
-
 async function loadTrackImage(track, element) {
   try {
     const imageTag = track.AlbumPrimaryImageTag || track.PrimaryImageTag;

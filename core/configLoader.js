@@ -4,6 +4,7 @@ const defaultConfig = {
   showLanguageInfo: true,
   muziklimit: 50,
   nextTrack: 50,
+  topTrack: 100,
   albumlimit: 20,
   sarkilimit: 200,
   gruplimit: 200,
@@ -17,6 +18,7 @@ const defaultConfig = {
   maxExcludeIdsForUri: 100,
   useAlbumArtAsBackground: 'false',
   albumArtBackgroundBlur: 10,
+  nextTracksSource: 'playlist',
   albumArtBackgroundOpacity: 0.5,
   defaultLanguage: getDefaultLanguage(),
   get languageLabels() {
@@ -43,6 +45,8 @@ export function getConfig() {
     notificationsEnabled: localStorage.getItem('notificationsEnabled') !== 'false',
     useAlbumArtAsBackground: localStorage.getItem('useAlbumArtAsBackground') === 'true',
     fullscreenMode: localStorage.getItem('fullscreenMode') === 'true' ? true : false,
+    topTrack: parseInt(localStorage.getItem('topTrack'), 10) || defaultConfig.topTrack,
+    nextTracksSource: localStorage.getItem('nextTracksSource') || 'playlist',
     albumArtBackgroundBlur: (() => {
       const v = localStorage.getItem('albumArtBackgroundBlur');
       return v !== null ? parseInt(v, 10) : 10;
@@ -125,6 +129,14 @@ export function updateConfig(newConfig) {
 
   if (newConfig.fullscreenMode !== undefined) {
     localStorage.setItem('fullscreenMode', newConfig.fullscreenMode);
+  }
+
+  if (newConfig.nextTracksSource !== undefined) {
+    localStorage.setItem('nextTracksSource', newConfig.nextTracksSource);
+  }
+
+  if (newConfig.topTrack !== undefined) {
+    localStorage.setItem('topTrack', newConfig.topTrack);
   }
 
   const configUpdatedEvent = new CustomEvent('configUpdated', {
