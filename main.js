@@ -5,6 +5,36 @@ import { checkForNewMusic } from "./ui/artistModal.js";
 import { loadJSMediaTags } from "./lyrics/id3Reader.js";
 import { getConfig } from "./core/configLoader.js";
 
+function forceSkinHeaderPointerEvents() {
+  const apply = () => {
+    document.querySelectorAll('html .skinHeader').forEach(el => {
+      el.style.setProperty('pointer-events', 'all', 'important');
+    });
+
+    const playerToggle = document.querySelector('button#jellyfinPlayerToggle');
+    if (playerToggle) {
+      playerToggle.style.setProperty('display', 'block', 'important');
+      playerToggle.style.setProperty('opacity', '1', 'important');
+      playerToggle.style.setProperty('pointer-events', 'all', 'important');
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+
+  const obs = new MutationObserver(apply);
+  obs.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true
+  });
+}
+
+forceSkinHeaderPointerEvents();
+
 const config = getConfig();
 
 function waitForElement(selector, timeout = 5000) {
@@ -54,8 +84,8 @@ export function isMobileDevice() {
 function createPlayerButton() {
   const btn = document.createElement("button");
   btn.id = "jellyfinPlayerToggle";
-  btn.setAttribute("aria-label", "Müzik Oynatıcıyı Aç/Kapa");
-  btn.title = "Müzik Oynatıcı";
+  btn.setAttribute("aria-label", "GMMP Aç/Kapa");
+  btn.title = "GMMP";
   btn.innerHTML = `<i class="fas fa-play-pause fa-lg" aria-hidden="true"></i>`;
   Object.assign(btn.style, {
     marginLeft: "12px",
@@ -63,13 +93,15 @@ function createPlayerButton() {
     border: "none",
     cursor: "pointer",
     color: "inherit",
-    fontSize: "1.2em"
+    textShadow: '0px 0px 3px #ffffff',
+    fontSize: "1.2em",
   });
   return btn;
 }
 
 async function onToggleClick() {
   try {
+    forceSkinHeaderPointerEvents();
     if (!isPlayerInitialized()) {
       await loadJSMediaTags();
       checkForNewMusic();
@@ -95,6 +127,7 @@ async function onToggleClick() {
 
 export async function addPlayerButton() {
   try {
+    forceSkinHeaderPointerEvents();
     loadCSS();
     const header = await waitForElement(".headerRight");
     if (document.getElementById("jellyfinPlayerToggle")) return;
@@ -108,7 +141,11 @@ export async function addPlayerButton() {
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", addPlayerButton);
+  document.addEventListener("DOMContentLoaded", function() {
+    forceSkinHeaderPointerEvents();
+    addPlayerButton();
+  });
 } else {
+  forceSkinHeaderPointerEvents();
   addPlayerButton();
 }
