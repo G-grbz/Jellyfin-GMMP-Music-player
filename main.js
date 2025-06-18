@@ -16,6 +16,13 @@ function forceSkinHeaderPointerEvents() {
       playerToggle.style.setProperty('display', 'block', 'important');
       playerToggle.style.setProperty('opacity', '1', 'important');
       playerToggle.style.setProperty('pointer-events', 'all', 'important');
+      playerToggle.style.setProperty('background', 'none', 'important');
+      playerToggle.style.setProperty('margin-left', '12px', 'important');
+      playerToggle.style.setProperty('text-shadow', 'rgb(255, 255, 255) 0px 0px 2px', 'important');
+      playerToggle.style.setProperty('color', 'inherit', 'important');
+      playerToggle.style.setProperty('cursor', 'pointer', 'important');
+      playerToggle.style.setProperty('border', 'none', 'important');
+      playerToggle.style.setProperty('font-size', '1.2em', 'important');
     }
   };
 
