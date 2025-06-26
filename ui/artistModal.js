@@ -9,6 +9,7 @@ import { musicDB } from "../utils/db.js";
 import { updateNextTracks } from "./playerUI.js";
 import { shuffleArray } from "../utils/domUtils.js";
 import { showStatsModal } from "./statsModal.js";
+import { updatePlaylistModal } from "./playlistModal.js";
 
 const config = getConfig();
 const DEFAULT_ARTWORK = "url('/web/GMMP/src/images/defaultArt.png')";
@@ -1698,7 +1699,9 @@ function handleTrackClick(track) {
             2000,
             'addlist'
         );
+        updateNextTracks();
         playTrack(existingIndex);
+        updatePlaylistModal();
     }
 }
 
@@ -1709,38 +1712,38 @@ function handlePlaySelected() {
     if (selectedTracks.length === 0) return;
 
     const uniqueTracks = selectedTracks.filter(track =>
-    !musicPlayerState.playlist.some(t => t.Id === track.Id)
-);
-
-if (uniqueTracks.length === 0) {
-    showNotification(
-    `<i class="fas fa-info-circle"></i> ${config.languageLabels.noTracksToSave}`,
-    2000,
-    'addlist'
-);
-    return;
-}
-
-const duplicateCount = selectedTracks.length - uniqueTracks.length;
-if (duplicateCount > 0) {
-    const duplicateTracks = selectedTracks.filter(track =>
-        musicPlayerState.playlist.some(t => t.Id === track.Id)
+        !musicPlayerState.playlist.some(t => t.Id === track.Id)
     );
 
-    const trackNames = duplicateTracks.slice(0, 3).map(track => track.Name);
-    const remainingCount = duplicateCount - 3;
+    if (uniqueTracks.length === 0) {
+        showNotification(
+            `<i class="fas fa-info-circle"></i> ${config.languageLabels.noTracksToSave}`,
+            2000,
+            'addlist'
+        );
+        return;
+    }
 
-    let message;
-    if (duplicateCount <= 3) {
-        message = `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')}`;
-    } else {
-        message = `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')} ${config.languageLabels.ayrica} ${remainingCount} ${config.languageLabels.moreTracks}`;
+    const duplicateCount = selectedTracks.length - uniqueTracks.length;
+    if (duplicateCount > 0) {
+        const duplicateTracks = selectedTracks.filter(track =>
+            musicPlayerState.playlist.some(t => t.Id === track.Id)
+        );
+
+        const trackNames = duplicateTracks.slice(0, 3).map(track => track.Name);
+        const remainingCount = duplicateCount - 3;
+
+        let message;
+        if (duplicateCount <= 3) {
+            message = `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')}`;
+        } else {
+            message = `<i class="fas fa-exclamation-triangle"></i> ${config.languageLabels.alreadyInPlaylist} (${duplicateCount}): ${trackNames.join(', ')} ${config.languageLabels.ayrica} ${remainingCount} ${config.languageLabels.moreTracks}`;
         }
         showNotification(message, 4000, 'addlist');
-}
-
-    musicPlayerState.playlist.push(...uniqueTracks);
-    musicPlayerState.originalPlaylist.push(...uniqueTracks);
+    }
+    const currentIndex = musicPlayerState.currentIndex;
+    musicPlayerState.playlist.splice(currentIndex + 1, 0, ...uniqueTracks);
+    musicPlayerState.originalPlaylist.splice(currentIndex + 1, 0, ...uniqueTracks);
     musicPlayerState.userAddedTracks.push(...uniqueTracks);
     musicPlayerState.effectivePlaylist = [
         ...musicPlayerState.playlist,
@@ -1757,8 +1760,10 @@ if (duplicateCount > 0) {
         2000,
         'addlist'
     );
+    updateNextTracks().then(() => {
+            playTrack(currentIndex + 1);
+        });
     toggleArtistModal(false);
-    updateNextTracks();
     updatePlaylistModal();
 }
 
