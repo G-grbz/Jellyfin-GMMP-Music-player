@@ -429,14 +429,9 @@ export async function updateNextTracks() {
     musicPlayerState.lastCurrentIndex = currentIndex;
   }
 
-  const maxNextTracks = Math.min(
-    config.nextTrack,
-    (config.muziklimit ? config.muziklimit - 1 : config.nextTrack)
-  );
-
   const nextIndices = userSettings.shuffle
-    ? getShuffledIndices(playlist, currentIndex, maxNextTracks)
-    : getSequentialIndices(playlist, currentIndex, maxNextTracks);
+    ? getShuffledIndices(playlist, currentIndex, config.nextTrack)
+    : getSequentialIndices(playlist, currentIndex, config.nextTrack);
 
   const trackElements = nextIndices.map(nextIndex => {
     const track = playlist[nextIndex];
@@ -492,7 +487,6 @@ export async function updateNextTracks() {
   musicPlayerState.nextTracksName = uiElements.name;
   musicPlayerState.id3ImageCache = id3ImageCache;
 }
-
 
 async function getTrackImage(track, cache) {
   const trackId = track.Id;
