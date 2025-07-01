@@ -795,10 +795,35 @@ async function showTopTracksInMainView(tab) {
   const config = getConfig();
   const { nextTracksContainer, id3ImageCache = {} } = musicPlayerState;
 
+  const uiElements = createNextTracksUI();
+  nextTracksContainer.innerHTML = '';
+
+  uiElements.name.textContent = getSourceLabel(tab);
+  uiElements.name.style.cursor = 'pointer';
+  uiElements.name.onclick = async (e) => {
+    e.stopPropagation();
+    const cfg = getConfig();
+    const nextSource = getNextTrackSource(cfg.nextTracksSource);
+    const updatedConfig = { ...cfg, nextTracksSource: nextSource.value };
+    updateConfig(updatedConfig);
+
+    showNotification(
+      `<i class="fas fa-music"></i> ${nextSource.label}`,
+      2000,
+      'info'
+    );
+
+    if (nextSource.value === 'playlist') {
+      await updateNextTracks();
+    } else {
+      await showTopTracksInMainView(nextSource.value);
+    }
+  };
+
   try {
     const token = getAuthToken();
     const userId = await window.ApiClient.getCurrentUserId();
-    const { apiUrl, trackListName } = getApiUrlForTab(tab, userId);
+    const { apiUrl } = getApiUrlForTab(tab, userId);
 
     const response = await fetch(apiUrl, {
       headers: { "X-Emby-Token": token }
@@ -813,64 +838,45 @@ async function showTopTracksInMainView(tab) {
     );
 
     if (tracks.length === 0) {
-      nextTracksContainer.innerHTML = `<div class="no-tracks">${
-        config.languageLabels.noTracks || 'Şarkı bulunamadı'
-      }</div>`;
-      return;
-    }
-
-    const uiElements = createNextTracksUI();
-    nextTracksContainer.innerHTML = '';
-
-    uiElements.name.textContent = getSourceLabel(tab);
-    uiElements.name.style.cursor = 'pointer';
-    uiElements.name.onclick = async (e) => {
-      e.stopPropagation();
-      const cfg = getConfig();
-      const nextSource = getNextTrackSource(cfg.nextTracksSource);
-      const updatedConfig = { ...cfg, nextTracksSource: nextSource.value };
-      updateConfig(updatedConfig);
+      const noTracksElement = document.createElement('div');
+      noTracksElement.className = 'no-tracks';
+      noTracksElement.textContent = config.languageLabels.noTracks || 'Şarkı bulunamadı';
+      uiElements.list.appendChild(noTracksElement);
 
       showNotification(
-        `<i class="fas fa-music"></i> ${nextSource.label}`,
+        `<i class="fas fa-info-circle"></i> ${getSourceLabel(tab)}: ${config.languageLabels.noTracks || 'Şarkı bulunamadı'}`,
         2000,
         'info'
       );
+    } else {
+      const trackElements = tracks.map((track, index) => {
+        const { trackElement, coverElement } = createTrackElement(
+          track,
+          index,
+          () => addAndPlayTrack(track)
+        );
 
-      if (nextSource.value === 'playlist') {
-        await updateNextTracks();
-      } else {
-        await showTopTracksInMainView(nextSource.value);
-      }
-    };
+        loadInitialBatch([{track, trackElement, coverElement, index}], id3ImageCache)
+          .then(() => {})
+          .catch(err => console.error('Görsel yükleme hatası:', err));
 
-    const trackElements = tracks.map((track, index) => {
-      const { trackElement, coverElement } = createTrackElement(
-        track,
-        index,
-        () => addAndPlayTrack(track)
+        uiElements.list.appendChild(trackElement);
+        return { track, trackElement, coverElement, index };
+      });
+
+      setupScrollControls(
+        trackElements,
+        uiElements.list,
+        uiElements.scrollLeft,
+        uiElements.scrollRight
       );
-
-      loadInitialBatch([{track, trackElement, coverElement, index}], id3ImageCache)
-        .then(() => {})
-        .catch(err => console.error('Görsel yükleme hatası:', err));
-
-      uiElements.list.appendChild(trackElement);
-      return { track, trackElement, coverElement, index };
-    });
-
-    setupScrollControls(
-      trackElements,
-      uiElements.list,
-      uiElements.scrollLeft,
-      uiElements.scrollRight
-    );
+    }
 
     const scrollControlsContainer = document.createElement('div');
     scrollControlsContainer.className = 'next-tracks-scroll-controls';
     scrollControlsContainer.append(uiElements.scrollLeft, uiElements.scrollRight);
 
-    if (trackElements.length > 4) {
+    if (tracks.length > 4) {
       nextTracksContainer.append(
         uiElements.name,
         scrollControlsContainer,
@@ -887,9 +893,18 @@ async function showTopTracksInMainView(tab) {
 
   } catch (error) {
     console.error('Sıradaki şarkılar yüklenirken hata:', error);
-    nextTracksContainer.innerHTML = `<div class="error-message">${
-      config.languageLabels.loadError || 'Yüklenirken hata oluştu'
-    }</div>`;
+    const errorElement = document.createElement('div');
+    errorElement.className = 'error-message';
+    errorElement.textContent = config.languageLabels.loadError || 'Yüklenirken hata oluştu';
+    uiElements.list.appendChild(errorElement);
+
+    nextTracksContainer.append(uiElements.wrapper, uiElements.name);
+
+    showNotification(
+      `<i class="fas fa-exclamation-circle"></i> ${getSourceLabel(tab)}: ${config.languageLabels.loadError || 'Yüklenirken hata oluştu'}`,
+      2000,
+      'error'
+    );
   }
 }
 
