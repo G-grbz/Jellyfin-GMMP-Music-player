@@ -189,3 +189,18 @@ To overwrite existing lyrics files, append the --overwrite flag:
 If your file path contains spaces, enclose it in double quotes, e.g., sh lrclib.sh "/Path/To/Your/Music Path" --overwrite (Supported formats: mp3 and flac)
 
 </details>
+
+## 📄 License and Usage Notice
+This project is not allowed to be copied, redistributed, or published without explicit permission.
+
+If you intend to use, modify, or share any part of this project, you must:
+
+Credit the original author clearly.
+
+Provide a link to the original repository.
+
+Indicate any changes made if the project is modified or forked.
+
+Unauthorized use or redistribution is strictly prohibited.
+
+Thank you for respecting the work and effort behind this project.
